@@ -2,8 +2,8 @@
 
 ## 使用说明
 
-1. clone 该项目；
-2. make；
+1. clone 该项目：`clone https://gitlab.deepglint.com/yumengwang/expreval.git`；
+2. 生成项目：`make`；
 3. 执行命令 `./test` 测试 C 接口，`python test.py` 测试 Python 接口；
 4. 阅读 test.cpp 了解 C 接口调用方法，阅读 test.py 了解 Python 接口调用方法。
 
