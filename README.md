@@ -4,7 +4,7 @@
 
 1. clone 该项目；
 2. make；
-3. ./test 测试 C 接口，python test.py 测试 Python 接口；
+3. 执行命令 `./test` 测试 C 接口，`python test.py` 测试 Python 接口；
 4. 阅读 test.cpp 了解 C 接口调用方法，阅读 test.py 了解 Python 接口调用方法。
 
 ## 可接受操作符（优先级由高到低）：
