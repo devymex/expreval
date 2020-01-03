@@ -20,5 +20,4 @@ def evaluate(str):
 	ret = module.evaluate(str.encode('utf-8'))
 	print('%s=%f' % (str, ret))
 
-#evaluate('-(3)')
 evaluate('v2>1?-(3)*-(log(2)+-5):max(-min(2.6,1),a)')

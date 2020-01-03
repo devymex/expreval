@@ -2,6 +2,7 @@
 #define __VALUE_HPP
 
 #include <map>
+
 enum VALUE_TYPE {VT_UNKNOWN = 0, VT_FLOAT, VT_INT, VT_VAR, VT_BFUNC, VT_UFUNC};
 
 struct VALUE {

@@ -223,6 +223,12 @@ void _initialize() {
 	ufuncList.clear();
 	namedValues.clear();
 
+	namedValues["e"] = MakeValue(VT_VAR, varList.size());
+	varList.push_back(M_E);
+
+	namedValues["pi"] = MakeValue(VT_VAR, varList.size());
+	varList.push_back(M_PI);
+
 	namedValues["max"] = MakeValue(VT_BFUNC, bfuncList.size());
 	bfuncList.push_back(std::max<double>);
 
