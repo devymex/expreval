@@ -308,9 +308,6 @@ extern "C" void initialize_py(PyObject *pPyDict) {
 				<< pKey << "' already exists!";
 		namedValues[pKey] = MakeValue(VT_VAR, varList.size());
 		varList.push_back(PyFloat_AsDouble(pPyValue));
-
-		Py_XDECREF(pPyKey);
-		Py_XDECREF(pPyValue);
 	}
 	Py_XDECREF(pPyDict);
 }

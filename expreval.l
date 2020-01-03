@@ -17,7 +17,7 @@ extern "C" int yywrap(void) {
 	yylval.val.fval = atof(yytext);
 	return constant;
 }
-([a-zA-Z_][a-zA-Z0-9]*) {
+([a-zA-Z_][a-zA-Z0-9_]*) {
 	auto iValue = namedValues.find(yytext);
 	CHECK(iValue != namedValues.end()) << "Name '"
 			<< yytext << "' not recognized!";
