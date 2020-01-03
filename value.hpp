@@ -1,3 +1,6 @@
+// Expreval: A "C-like" Syntax Expression Evaluator
+// Yumeng Wang (devymex@gmail.com)
+
 #ifndef __VALUE_HPP
 #define __VALUE_HPP
 

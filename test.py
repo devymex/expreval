@@ -1,3 +1,5 @@
+#!/usr/bin/python3
+
 import ctypes, os
 
 # Loading module from so file
@@ -21,3 +23,4 @@ def evaluate(str):
 	print('%s=%f' % (str, ret))
 
 evaluate('v2>1?-(3)*-(log(2)+-5):max(-min(2.6,1),a)')
+

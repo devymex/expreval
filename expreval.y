@@ -1,4 +1,7 @@
 %{
+// Expreval: A "C-like" Syntax Expression Evaluator
+// Yumeng Wang (devymex@gmail.com)
+
 #include <cmath>
 #include <functional>
 #include <map>
@@ -55,163 +58,159 @@ double dResult;
 
 line
 : expr CR {
-		$$.fval = $1.fval;
-		$$.type = VT_FLOAT;
-
+		$$ = $1;
 		dResult = $$.fval;
-		LOG(INFO) << "expr=" << $$.fval;
+		//LOG(INFO) << "expr=" << $$.fval;
+
 		YYACCEPT;
 	}
 ;
 
 expr
 : additive {
-		$$.fval = $1.fval;
-		$$.type = VT_FLOAT;
-		LOG(INFO) << "additive=" << $$.fval;
+		$$ = $1;
+		//LOG(INFO) << "additive=" << $$.fval;
 	}
 | logical {
 		$$.fval = (double)$1.ival; 
 		$$.type = VT_FLOAT;
-		LOG(INFO) << "logical=" << $$.fval;
+		//LOG(INFO) << "logical=" << $$.fval;
 	}
 | logical '?' expr ':' expr {
 		if ($3.type == VT_INT && $5.type == VT_INT) {
 			$$.ival = $1.ival ? $3.ival : $5.ival;
 			$$.type = VT_INT;
-			LOG(INFO) << $1.ival << "?" << $3.ival << ":" << $5.ival << " -> " << $$.ival;
+			//LOG(INFO) << $1.ival << "?" << $3.ival << ":" << $5.ival << " -> " << $$.ival;
 		} else if ($3.type == VT_FLOAT && $5.type == VT_FLOAT) {
 			$$.fval = $1.ival ? $3.fval : $5.fval;
 			$$.type = VT_FLOAT;
-			LOG(INFO) << $1.ival << "?" << $3.fval << ":" << $5.fval << " -> " << $$.fval;
+			//LOG(INFO) << $1.ival << "?" << $3.fval << ":" << $5.fval << " -> " << $$.fval;
 		} else {
-			LOG(FATAL) << $3.type << " " << $5.type;
+			//LOG(FATAL) << $3.type << " " << $5.type;
 		}
 	}
 ;
 
 logical
 : equality {
-		$$.ival = $1.ival;
-		$$.type = VT_INT;
-		LOG(INFO) << "equality=" << $$.ival;
+		$$ = $1;
+		//LOG(INFO) << "equality=" << $$.ival;
 	}
 | equality LOGIC_OR equality {
 		$$.ival = $1.ival || $3.ival;
 		$$.type = VT_INT;
-		LOG(INFO) << $1.ival << "||" << $3.ival << " -> " << $$.ival;
+		//LOG(INFO) << $1.ival << "||" << $3.ival << " -> " << $$.ival;
 	}
 | equality LOGIC_AND equality {
 		$$.ival = $1.ival && $3.ival;
 		$$.type = VT_INT;
-		LOG(INFO) << $1.ival << "&&" << $3.ival << " -> " << $$.ival;
+		//LOG(INFO) << $1.ival << "&&" << $3.ival << " -> " << $$.ival;
 	}
 ;
 
 equality
 : relational {
-		$$.ival = $1.ival; 
-		LOG(INFO) << "relational=" << $$.ival;
-		$$.type = VT_INT;
+		$$ = $1;
+		//LOG(INFO) << "relational=" << $$.ival;
 	}
 | relational CMP_EQ relational {
 		$$.ival = $1.fval == $3.fval;
 		$$.type = VT_INT;
-		LOG(INFO) << $1.ival << "==" << $3.ival << " -> " << $$.ival;
+		//LOG(INFO) << $1.ival << "==" << $3.ival << " -> " << $$.ival;
 	}
 | relational CMP_NE relational {
 		$$.ival = $1.fval == $3.fval; 
 		$$.type = VT_INT;
-		LOG(INFO) << $1.ival << "!=" << $3.ival << " -> " << $$.ival;
+		//LOG(INFO) << $1.ival << "!=" << $3.ival << " -> " << $$.ival;
 	}
 
 relational
 : additive CMP_LT additive {
 		$$.ival = (int)($1.fval < $3.fval);
 		$$.type = VT_INT;
-		LOG(INFO) << $1.fval << "<" << $3.fval << " -> " << $$.ival;
+		//LOG(INFO) << $1.fval << "<" << $3.fval << " -> " << $$.ival;
 	}
 | additive CMP_LE additive {
 		$$.ival = (int)($1.fval <= $3.fval);
 		$$.type = VT_INT;
-		LOG(INFO) << $1.fval << "<=" << $3.fval << " -> " << $$.ival;
+		//LOG(INFO) << $1.fval << "<=" << $3.fval << " -> " << $$.ival;
 	}
 | additive CMP_GE additive {
 		$$.ival = (int)($1.fval >= $3.fval);
 		$$.type = VT_INT;
-		LOG(INFO) << $1.fval << ">=" << $3.fval << " -> " << $$.ival;
+		//LOG(INFO) << $1.fval << ">=" << $3.fval << " -> " << $$.ival;
 	}
 | additive CMP_GT additive {
 		$$.ival = (int)($1.fval > $3.fval);
 		$$.type = VT_INT;
-		LOG(INFO) << $1.fval << ">" << $3.fval << " -> " << $$.ival;
+		//LOG(INFO) << $1.fval << ">" << $3.fval << " -> " << $$.ival;
 	}
 ;
 
 additive
 : multiplicative {
-		$$.fval = $1.fval;
-		$$.type = VT_FLOAT;
-		LOG(INFO) << "multiplicative=" << $$.fval;
+		$$ = $1;
+		//LOG(INFO) << "multiplicative=" << $$.fval;
 	}
 | multiplicative '+' multiplicative {
 		$$.fval = $1.fval + $3.fval;
 		$$.type = VT_FLOAT;
-		LOG(INFO) << $1.fval << "+" << $3.fval << " -> " << $$.fval;
+		//LOG(INFO) << $1.fval << "+" << $3.fval << " -> " << $$.fval;
 	}
 | multiplicative '-' multiplicative {
 		$$.fval = $1.fval - $3.fval;
 		$$.type = VT_FLOAT;
-		LOG(INFO) << $1.fval << "-" << $3.fval << " -> " << $$.fval;
+		//LOG(INFO) << $1.fval << "-" << $3.fval << " -> " << $$.fval;
 	}
 ;
 
 multiplicative
 : primary {
 		$$ = $1;
-		LOG(INFO) << "primary=" << $$.fval;
+		//LOG(INFO) << "primary=" << $$.fval;
 	}
 | primary '*' primary {
 		$$.fval = $1.fval * $3.fval;
 		$$.type = VT_FLOAT;
-		LOG(INFO) << $1.fval << "*" << $3.fval << " -> " << $$.fval;
+		//LOG(INFO) << $1.fval << "*" << $3.fval << " -> " << $$.fval;
 	}
 | primary '/' primary {
 		$$.fval = $1.fval / $3.fval;
 		$$.type = VT_FLOAT;
-		LOG(INFO) << $1.fval << "/" << $3.fval << " -> " << $$.fval;
+		//LOG(INFO) << $1.fval << "/" << $3.fval << " -> " << $$.fval;
 	}
 ;
 
 primary
 : '-' primary %prec NEG {
 		$$.fval = -$2.fval; 
-		LOG(INFO) << "-(" << $2.fval << ")=" << $$.fval;
+		$$.type = VT_FLOAT;
+		//LOG(INFO) << "-(" << $2.fval << ")=" << $$.fval;
 	}
 | constant {
 		$$.fval = $1.fval; 
 		$$.type = VT_FLOAT;
-		LOG(INFO) << "constant=" << $$.fval;
+		//LOG(INFO) << "constant=" << $$.fval;
 	}
 | variable {
 		$$.fval = varList[$1.id]; 
 		$$.type = VT_FLOAT;
-		LOG(INFO) << "variable=" << $$.fval;
+		//LOG(INFO) << "variable=" << $$.fval;
 	}
 | bfunc '(' expr ',' expr ')' {
 		$$.fval = bfuncList[$1.id]($3.fval, $5.fval);
 		$$.type = VT_FLOAT;
-		LOG(INFO) << "bfunc" << $1.id << "(" << $3.fval << "," << $5.fval << ") -> " << $$.fval;
+		//LOG(INFO) << "bfunc" << $1.id << "(" << $3.fval << "," << $5.fval << ") -> " << $$.fval;
 	}
 | ufunc '(' expr ')' {
 		$$.fval = ufuncList[$1.id]($3.fval);
 		$$.type = VT_FLOAT;
-		LOG(INFO) << "ufunc" << $1.id << "(" << $3.fval << ") -> " << $$.fval;
+		//LOG(INFO) << "ufunc" << $1.id << "(" << $3.fval << ") -> " << $$.fval;
 	}
 | '(' expr ')' {
 		$$.fval = $2.fval;
 		$$.type = VT_FLOAT;
-		LOG(INFO) << "(expr)=" << $$.fval;
+		//LOG(INFO) << "(expr)=" << $$.fval;
 	}
 ;
 
@@ -223,12 +222,14 @@ void _initialize() {
 	ufuncList.clear();
 	namedValues.clear();
 
+	// Add mathmatic constants
 	namedValues["e"] = MakeValue(VT_VAR, varList.size());
 	varList.push_back(M_E);
 
 	namedValues["pi"] = MakeValue(VT_VAR, varList.size());
 	varList.push_back(M_PI);
 
+	// Add binary functions
 	namedValues["max"] = MakeValue(VT_BFUNC, bfuncList.size());
 	bfuncList.push_back(std::max<double>);
 
@@ -241,6 +242,7 @@ void _initialize() {
 	namedValues["pow"] = MakeValue(VT_BFUNC, bfuncList.size());
 	bfuncList.push_back([](double b, double e) { return std::pow(b, e); });
 
+	// Add unary functions
 	namedValues["log"] = MakeValue(VT_UFUNC, ufuncList.size());
 	ufuncList.push_back([](double v) { return std::log(v); });
 

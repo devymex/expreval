@@ -1,4 +1,8 @@
+
 %{
+// Expreval: A "C-like" Syntax Expression Evaluator
+// Yumeng Wang (devymex@gmail.com)
+
 #include "value.hpp"
 #include "y.tab.h"
 #include "logging.hpp"
