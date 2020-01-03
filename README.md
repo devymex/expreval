@@ -1,4 +1,5 @@
-# 类 C 语法公式计算器
+# Expreval: A "C-like" Syntax Expression Evaluator
+类 C 语法公式计算器
 
 ## 使用说明
 

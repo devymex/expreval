@@ -1,4 +1,3 @@
-
 %{
 // Expreval: A "C-like" Syntax Expression Evaluator
 // Yumeng Wang (devymex@gmail.com)
