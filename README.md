@@ -2,6 +2,7 @@
 
 ## 使用说明
 
+1. 安装 flex 和 bison：`sudo apt-get install bison flex`；
 1. clone 该项目：`clone https://gitlab.deepglint.com/yumengwang/expreval.git`；
 2. 生成项目：`make`；
 3. 执行命令 `./test` 测试 C 接口，`python test.py` 测试 Python 接口；
@@ -9,7 +10,8 @@
 
 ## 可接受操作符（优先级由高到低）：
 
-* 函数（min，max）
+* 一元函数
+* 二元函数
 * 括号（()）
 * 取负（-）
 * 乘除（*，/）
@@ -19,9 +21,31 @@
 * 逻辑（||，&&）
 * 条件（?:）
 
+## 支持的函数
+* min(v1, v2)
+* max(v1, v2)
+* atan2(y, x)
+* pow(b, e)
+* log(v)
+* log10(v)
+* exp(v)
+* abs(v)
+* ceil(v)
+* floor(v)
+* cos(v)
+* cosh(v)
+* acos(v)
+* sin(v)
+* sinh(v)
+* asin(v)
+* tan(v)
+* tanh(v)
+* atan(v)
+* sqrt(v)
+
 ## 变量
 
-可自定义变量名，但必须以下划线（'_'）作为起始字符。
+可自定义变量名，但不能与任何已存在函数名冲突。
 
 ## Q&A
 

@@ -1,5 +1,6 @@
 %{
 #include <cmath>
+#include <functional>
 #include <map>
 
 #include <Python.h>
@@ -7,7 +8,7 @@
 #include "value.hpp"
 #include "logging.hpp"
 
-typedef struct yy_buffer_state * YY_BUFFER_STATE;
+typedef struct yy_buffer_state *YY_BUFFER_STATE;
 
 extern int yylex();
 extern int yyparse();
@@ -20,7 +21,13 @@ int yyerror(char const *str) {
 	return 0;
 }
 
-std::map<std::string, float> varValue;
+std::vector<double> varList;
+std::vector<std::function<double(double, double)>> bfuncList;
+std::vector<std::function<double(double)>> ufuncList;
+
+std::map<std::string, VALUE> namedValues;
+
+double dResult;
 
 %}
 
@@ -28,21 +35,20 @@ std::map<std::string, float> varValue;
 	VALUE val;
 }
 
-%token <val> constant variable
 %token <val> '+' '-' '*' '/' '?' ':'
 %token <val> FUN_MIN FUN_MAX
 %token <val> CMP_LT CMP_LE CMP_GE CMP_GT
 %token <val> CMP_EQ CMP_NE 
 %token <val> CR
 
-%type <val> line expr additive multiplicative bfunc primary
+%token <val> constant variable bfunc ufunc
+%type <val> line expr additive multiplicative primary
 %type <val> logical equality relational
 
 %left LOGIC_OR LOGIC_AND
 %left CMP_EQ CMP_NE 
 %left CMP_LT CMP_LE CMP_GE CMP_GT
 %left '+' '-' '*' '/' '?' ':'
-%left FUN_MIN FUN_MAX
 %precedence NEG
 
 %%
@@ -50,8 +56,10 @@ std::map<std::string, float> varValue;
 line
 : expr CR {
 		$$.fval = $1.fval;
-		varValue["result"] = $$.fval;
-		//LOG(INFO) << "expr=" << $$.fval;
+		$$.type = VT_FLOAT;
+
+		dResult = $$.fval;
+		LOG(INFO) << "expr=" << $$.fval;
 		YYACCEPT;
 	}
 ;
@@ -59,24 +67,25 @@ line
 expr
 : additive {
 		$$.fval = $1.fval;
-		//LOG(INFO) << "additive=" << $$.fval;
+		$$.type = VT_FLOAT;
+		LOG(INFO) << "additive=" << $$.fval;
 	}
 | logical {
+		$$.fval = (double)$1.ival; 
 		$$.type = VT_FLOAT;
-		$$.fval = (float)$1.ival; 
-		//LOG(INFO) << "logical=" << $$.fval;
+		LOG(INFO) << "logical=" << $$.fval;
 	}
 | logical '?' expr ':' expr {
 		if ($3.type == VT_INT && $5.type == VT_INT) {
-			$$.type = VT_INT;
 			$$.ival = $1.ival ? $3.ival : $5.ival;
-			//LOG(INFO) << $1.ival << "?" << $3.ival << ":" << $5.ival << " -> " << $$.ival;
+			$$.type = VT_INT;
+			LOG(INFO) << $1.ival << "?" << $3.ival << ":" << $5.ival << " -> " << $$.ival;
 		} else if ($3.type == VT_FLOAT && $5.type == VT_FLOAT) {
-			$$.type = VT_FLOAT;
 			$$.fval = $1.ival ? $3.fval : $5.fval;
-			//LOG(INFO) << $1.ival << "?" << $3.fval << ":" << $5.fval << " -> " << $$.fval;
+			$$.type = VT_FLOAT;
+			LOG(INFO) << $1.ival << "?" << $3.fval << ":" << $5.fval << " -> " << $$.fval;
 		} else {
-			//LOG(FATAL);
+			LOG(FATAL) << $3.type << " " << $5.type;
 		}
 	}
 ;
@@ -84,123 +93,200 @@ expr
 logical
 : equality {
 		$$.ival = $1.ival;
-		//LOG(INFO) << "equality=" << $$.ival;
+		$$.type = VT_INT;
+		LOG(INFO) << "equality=" << $$.ival;
 	}
 | equality LOGIC_OR equality {
 		$$.ival = $1.ival || $3.ival;
-		//LOG(INFO) << $1.ival << "||" << $3.ival << " -> " << $$.ival;
+		$$.type = VT_INT;
+		LOG(INFO) << $1.ival << "||" << $3.ival << " -> " << $$.ival;
 	}
 | equality LOGIC_AND equality {
 		$$.ival = $1.ival && $3.ival;
-		//LOG(INFO) << $1.ival << "&&" << $3.ival << " -> " << $$.ival;
+		$$.type = VT_INT;
+		LOG(INFO) << $1.ival << "&&" << $3.ival << " -> " << $$.ival;
 	}
 ;
 
 equality
 : relational {
 		$$.ival = $1.ival; 
-		//LOG(INFO) << "relational=" << $$.ival;
+		LOG(INFO) << "relational=" << $$.ival;
+		$$.type = VT_INT;
 	}
 | relational CMP_EQ relational {
 		$$.ival = $1.fval == $3.fval;
-		//LOG(INFO) << $1.ival << "==" << $3.ival << " -> " << $$.ival;
+		$$.type = VT_INT;
+		LOG(INFO) << $1.ival << "==" << $3.ival << " -> " << $$.ival;
 	}
 | relational CMP_NE relational {
 		$$.ival = $1.fval == $3.fval; 
-		//LOG(INFO) << $1.ival << "!=" << $3.ival << " -> " << $$.ival;
+		$$.type = VT_INT;
+		LOG(INFO) << $1.ival << "!=" << $3.ival << " -> " << $$.ival;
 	}
 
 relational
 : additive CMP_LT additive {
 		$$.ival = (int)($1.fval < $3.fval);
 		$$.type = VT_INT;
-		//LOG(INFO) << $1.fval << "<" << $3.fval << " -> " << $$.ival;
+		LOG(INFO) << $1.fval << "<" << $3.fval << " -> " << $$.ival;
 	}
 | additive CMP_LE additive {
 		$$.ival = (int)($1.fval <= $3.fval);
 		$$.type = VT_INT;
-		//LOG(INFO) << $1.fval << "<=" << $3.fval << " -> " << $$.ival;
+		LOG(INFO) << $1.fval << "<=" << $3.fval << " -> " << $$.ival;
 	}
 | additive CMP_GE additive {
 		$$.ival = (int)($1.fval >= $3.fval);
 		$$.type = VT_INT;
-		//LOG(INFO) << $1.fval << ">=" << $3.fval << " -> " << $$.ival;
+		LOG(INFO) << $1.fval << ">=" << $3.fval << " -> " << $$.ival;
 	}
 | additive CMP_GT additive {
 		$$.ival = (int)($1.fval > $3.fval);
 		$$.type = VT_INT;
-		//LOG(INFO) << $1.fval << ">" << $3.fval << " -> " << $$.ival;
+		LOG(INFO) << $1.fval << ">" << $3.fval << " -> " << $$.ival;
 	}
 ;
 
 additive
 : multiplicative {
 		$$.fval = $1.fval;
-		//LOG(INFO) << "multiplicative=" << $$.fval;
+		$$.type = VT_FLOAT;
+		LOG(INFO) << "multiplicative=" << $$.fval;
 	}
 | multiplicative '+' multiplicative {
 		$$.fval = $1.fval + $3.fval;
-		//LOG(INFO) << $1.fval << "+" << $3.fval << " -> " << $$.fval;
+		$$.type = VT_FLOAT;
+		LOG(INFO) << $1.fval << "+" << $3.fval << " -> " << $$.fval;
 	}
 | multiplicative '-' multiplicative {
 		$$.fval = $1.fval - $3.fval;
-		//LOG(INFO) << $1.fval << "-" << $3.fval << " -> " << $$.fval;
+		$$.type = VT_FLOAT;
+		LOG(INFO) << $1.fval << "-" << $3.fval << " -> " << $$.fval;
 	}
 ;
 
 multiplicative
 : primary {
-		$$.fval = $1.fval;
-		//LOG(INFO) << "primary=" << $$.fval;
+		$$ = $1;
+		LOG(INFO) << "primary=" << $$.fval;
 	}
 | primary '*' primary {
 		$$.fval = $1.fval * $3.fval;
-		//LOG(INFO) << $1.fval << "*" << $3.fval << " -> " << $$.fval;
+		$$.type = VT_FLOAT;
+		LOG(INFO) << $1.fval << "*" << $3.fval << " -> " << $$.fval;
 	}
 | primary '/' primary {
 		$$.fval = $1.fval / $3.fval;
-		//LOG(INFO) << $1.fval << "/" << $3.fval << " -> " << $$.fval;
-	}
-;
-
-bfunc
-: FUN_MIN '(' expr ',' expr ')' {
-		$$.fval = std::min($3.fval, $5.fval);
-		//LOG(INFO) << "min(" << $3.fval << "," << $5.fval << ") -> " << $$.fval;
-	}
-| FUN_MAX '(' expr ',' expr ')' {
-		$$.fval = std::max($3.fval, $5.fval);
-		//LOG(INFO) << "max(" << $3.fval << "," << $5.fval << ") -> " << $$.fval;
+		$$.type = VT_FLOAT;
+		LOG(INFO) << $1.fval << "/" << $3.fval << " -> " << $$.fval;
 	}
 ;
 
 primary
 : '-' primary %prec NEG {
-		$$.fval = -$1.fval; 
+		$$.fval = -$2.fval; 
+		LOG(INFO) << "-(" << $2.fval << ")=" << $$.fval;
 	}
 | constant {
 		$$.fval = $1.fval; 
 		$$.type = VT_FLOAT;
-		//LOG(INFO) << "constant=" << $$.fval;
+		LOG(INFO) << "constant=" << $$.fval;
 	}
 | variable {
-		$$.fval = $1.fval; 
+		$$.fval = varList[$1.id]; 
 		$$.type = VT_FLOAT;
-		//LOG(INFO) << "variable=" << $$.fval;
+		LOG(INFO) << "variable=" << $$.fval;
 	}
-| bfunc {
-		$$ = $1;
-		//LOG(INFO) << "bfunc=" << $$.fval;
+| bfunc '(' expr ',' expr ')' {
+		$$.fval = bfuncList[$1.id]($3.fval, $5.fval);
+		$$.type = VT_FLOAT;
+		LOG(INFO) << "bfunc" << $1.id << "(" << $3.fval << "," << $5.fval << ") -> " << $$.fval;
+	}
+| ufunc '(' expr ')' {
+		$$.fval = ufuncList[$1.id]($3.fval);
+		$$.type = VT_FLOAT;
+		LOG(INFO) << "ufunc" << $1.id << "(" << $3.fval << ") -> " << $$.fval;
 	}
 | '(' expr ')' {
 		$$.fval = $2.fval;
-		//LOG(INFO) << "(expr)=" << $$.fval;
+		$$.type = VT_FLOAT;
+		LOG(INFO) << "(expr)=" << $$.fval;
 	}
 ;
 
 %%
 
-extern "C" void set_variables_py(PyObject *pPyDict) {
+void _initialize() {
+	varList.clear();
+	bfuncList.clear();
+	ufuncList.clear();
+	namedValues.clear();
+
+	namedValues["max"] = MakeValue(VT_BFUNC, bfuncList.size());
+	bfuncList.push_back(std::max<double>);
+
+	namedValues["min"] = MakeValue(VT_BFUNC, bfuncList.size());
+	bfuncList.push_back(std::min<double>);
+
+	namedValues["atan2"] = MakeValue(VT_BFUNC, bfuncList.size());
+	bfuncList.push_back([](double y, double x) { return std::pow(y, x); });
+
+	namedValues["pow"] = MakeValue(VT_BFUNC, bfuncList.size());
+	bfuncList.push_back([](double b, double e) { return std::pow(b, e); });
+
+	namedValues["log"] = MakeValue(VT_UFUNC, ufuncList.size());
+	ufuncList.push_back([](double v) { return std::log(v); });
+
+	namedValues["log10"] = MakeValue(VT_UFUNC, ufuncList.size());
+	ufuncList.push_back([](double v) { return std::log10(v); });
+
+	namedValues["exp"] = MakeValue(VT_UFUNC, ufuncList.size());
+	ufuncList.push_back([](double v) { return std::exp(v); });
+
+	namedValues["abs"] = MakeValue(VT_UFUNC, ufuncList.size());
+	ufuncList.push_back([](double v) { return std::abs(v); });
+
+	namedValues["ceil"] = MakeValue(VT_UFUNC, ufuncList.size());
+	ufuncList.push_back([](double v) { return std::ceil(v); });
+
+	namedValues["floor"] = MakeValue(VT_UFUNC, ufuncList.size());
+	ufuncList.push_back([](double v) { return std::floor(v); });
+
+	namedValues["cos"] = MakeValue(VT_UFUNC, ufuncList.size());
+	ufuncList.push_back([](double v) { return std::cos(v); });
+
+	namedValues["cosh"] = MakeValue(VT_UFUNC, ufuncList.size());
+	ufuncList.push_back([](double v) { return std::cosh(v); });
+
+	namedValues["acos"] = MakeValue(VT_UFUNC, ufuncList.size());
+	ufuncList.push_back([](double v) { return std::acos(v); });
+
+	namedValues["sin"] = MakeValue(VT_UFUNC, ufuncList.size());
+	ufuncList.push_back([](double v) { return std::sin(v); });
+
+	namedValues["sinh"] = MakeValue(VT_UFUNC, ufuncList.size());
+	ufuncList.push_back([](double v) { return std::sinh(v); });
+
+	namedValues["asin"] = MakeValue(VT_UFUNC, ufuncList.size());
+	ufuncList.push_back([](double v) { return std::asin(v); });
+
+	namedValues["tan"] = MakeValue(VT_UFUNC, ufuncList.size());
+	ufuncList.push_back([](double v) { return std::tan(v); });
+
+	namedValues["tanh"] = MakeValue(VT_UFUNC, ufuncList.size());
+	ufuncList.push_back([](double v) { return std::tanh(v); });
+
+	namedValues["atan"] = MakeValue(VT_UFUNC, ufuncList.size());
+	ufuncList.push_back([](double v) { return std::atan(v); });
+
+	namedValues["sqrt"] = MakeValue(VT_UFUNC, ufuncList.size());
+	ufuncList.push_back([](double v) { return std::sqrt(v); });
+}
+
+extern "C" void initialize_py(PyObject *pPyDict) {
+	_initialize();
+
 	PyObject *pPyKey, *pPyValue;
 	Py_ssize_t pos = 0;
 
@@ -210,9 +296,10 @@ extern "C" void set_variables_py(PyObject *pPyDict) {
 
 		Py_ssize_t nKeyLen;
 		const char *pKey = PyUnicode_AsUTF8(pPyKey);
-		CHECK_EQ(pKey[0], '_') << "Variable name must start with '_'";
-		double dVal = PyFloat_AsDouble(pPyValue);
-		varValue[pKey] = (float)dVal;
+		CHECK_EQ(namedValues.count(pKey), 0) << "Name '"
+				<< pKey << "' already exists!";
+		namedValues[pKey] = MakeValue(VT_VAR, varList.size());
+		varList.push_back(PyFloat_AsDouble(pPyValue));
 
 		Py_XDECREF(pPyKey);
 		Py_XDECREF(pPyValue);
@@ -220,11 +307,15 @@ extern "C" void set_variables_py(PyObject *pPyDict) {
 	Py_XDECREF(pPyDict);
 }
 
-extern "C" void set_variables(const std::map<std::string, float> &varMap) {
-	for (auto &v : varMap) {
-		CHECK_EQ(v.first[0], '_') << "Variable name must start with '_'";
+extern "C" void initialize(const std::map<std::string, double> &varValues) {
+	_initialize();
+
+	for (auto &v : varValues) {
+		CHECK_EQ(namedValues.count(v.first), 0) << "Name '"
+				<< v.first << "' already exists!";
+		namedValues[v.first] = MakeValue(VT_VAR, varList.size());
+		varList.push_back(v.second);
 	}
-	varValue = varMap;
 }
 
 extern "C" double evaluate(const char *pStr) {
@@ -235,7 +326,6 @@ extern "C" double evaluate(const char *pStr) {
 	yyparse();
 	yy_delete_buffer(buffer);
 
-	double dRet = varValue["result"];
-	return dRet;
+	return dResult;
 }
 

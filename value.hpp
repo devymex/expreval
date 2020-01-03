@@ -2,16 +2,24 @@
 #define __VALUE_HPP
 
 #include <map>
-typedef enum {VT_FLOAT, VT_INT} VALUE_TYPE;
+enum VALUE_TYPE {VT_UNKNOWN = 0, VT_FLOAT, VT_INT, VT_VAR, VT_BFUNC, VT_UFUNC};
 
-typedef struct _VALUE {
+struct VALUE {
 	union {
 		int ival;
-		float fval;
+		double fval;
+		size_t id;
 	};
 	VALUE_TYPE type;
-} VALUE;
+};
 
-extern std::map<std::string, float> varValue;
+inline VALUE MakeValue(VALUE_TYPE _vt, size_t _id) {
+	VALUE val;
+	val.type = _vt;
+	val.id = _id;
+	return val;
+}
+
+extern std::map<std::string, VALUE> namedValues;
 
 #endif

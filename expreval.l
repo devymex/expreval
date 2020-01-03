@@ -14,19 +14,20 @@ extern "C" int yywrap(void) {
 	yylval.val.fval = atof(yytext);
 	return constant;
 }
-(_[a-zA-Z0-9]+) {
-	auto iVar = varValue.find(yytext);
-	CHECK(iVar != varValue.end()) << yytext;
-	yylval.val.fval = iVar->second;
-	return variable;
+([a-zA-Z_][a-zA-Z0-9]*) {
+	auto iValue = namedValues.find(yytext);
+	CHECK(iValue != namedValues.end()) << "Name '"
+			<< yytext << "' not recognized!";
+	yylval.val = iValue->second;
+	switch (iValue->second.type) {
+	case VT_VAR: return variable;
+	case VT_BFUNC: return bfunc;
+	case VT_UFUNC: return ufunc;
+	default: break;
+	}
+	LOG(FATAL);
 }
-[\+\-] {return *yytext;}
-[\*\/] {return *yytext;}
-[\(\)\?\:\,] {return *yytext;}
-
-"min" {return FUN_MIN;}
-"max" {return FUN_MAX;}
-
+[\+\-\*\/\(\)\?\:\,] {return *yytext;}
 "<" {return CMP_LT;}
 "<=" {return CMP_LE;}
 ">=" {return CMP_GE;}
@@ -42,7 +43,7 @@ extern "C" int yywrap(void) {
 [ \t] ;
 
 . {
-	LOG(FATAL) << "Lex error!";
+	LOG(FATAL) << "Lex error: " << yytext;
 }
 %%
 
