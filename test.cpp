@@ -2,15 +2,26 @@
 #include <iostream>
 
 extern "C" void initialize(const std::map<std::string, double> &varMap);
+extern "C" void set_variable_value(const char *pKey, double dValue);
 extern "C" double evaluate(const char *pStr);
 
 int main(int nArgCnt, char *ppArgs[]) {
 	std::map<std::string, double> varMap;
-	varMap["_a"] = 3.4;
-	varMap["_v2"] = 5.6;
+	varMap["img_h"] = 500.;
+	varMap["img_w"] = 1000.;
+	varMap["input_h"] = 224.;
+	varMap["input_w"] = 224.;
+	varMap["box_x"] = 0;
+	varMap["box_y"] = 0;
+	varMap["box_w"] = 400;
+	varMap["box_h"] = 200;
 	initialize(varMap);
+	set_variable_value("input_h", 112);
 
-	std::string strExpr = "_v2<1?-(3)*-(2+-5):max(-min(2.6,1),_a)";
+	std::string strExpr = "((img_h < img_w) ? (input_h * max(max(img_h / input_h / 1.2, img_w / input_w / 1.2), 1)) : img_w)";
+	std::cout << strExpr << "=" << evaluate(strExpr.c_str()) << std::endl;
+	
+	strExpr = "box_x - max(3 * box_w, 4 * box_h) * 1.25 / box_w";
 	std::cout << strExpr << "=" << evaluate(strExpr.c_str()) << std::endl;
 	return 0;
 }

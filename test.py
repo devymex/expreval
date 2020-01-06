@@ -7,21 +7,27 @@ module = ctypes.CDLL('%s/libexpreval.so' % os.getcwd())
 
 # Setup interfaces
 module.initialize_py.argtypes = [ctypes.py_object]
+module.set_variable_value.argtypes = [ctypes.c_char_p, ctypes.c_double]
 module.evaluate.argtypes = [ctypes.c_char_p]
 module.evaluate.restype = ctypes.c_double
 
-# Setup variables
-for x in range(5):
-	vars = {}
-	vars['img_w'] = 3.4
-	vars['v2'] = 5.6
-	print(vars)
-	module.initialize_py(vars)
+def initialze():
+	# Setup variables
+	for x in range(5):
+		vars = {}
+		vars['img_h'] = 500.;
+		vars['img_w'] = 1000.;
+		vars['input_h'] = 224.;
+		vars['input_w'] = 224.;
+		print(vars)
+		module.initialize_py(vars)
+		module.set_variable_value('input_h'.encode('utf-8'), 112.)
 
 # Evaluate
 def evaluate(str):
 	ret = module.evaluate(str.encode('utf-8'))
 	print('%s=%f' % (str, ret))
 
-evaluate('v2>1?-(3)*-(log(2)+-5):max(-min(2.6,1),img_w)')
+initialze()
+evaluate('((img_h < img_w) ? (input_h * max(max(img_h / input_h / 1.2, img_w / input_w / 1.2), 1)) : img_w)')
 
