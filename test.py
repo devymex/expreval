@@ -13,14 +13,15 @@ module.evaluate.restype = ctypes.c_double
 
 def initialze():
 	# Setup variables
+	vars = {}
+	vars['img_h'] = 500.;
+	vars['img_w'] = 1000.;
+	vars['input_h'] = 224.;
+	vars['input_w'] = 224.;
+	print(vars)
+	module.initialize_py(vars)
 	for x in range(5):
-		vars = {}
-		vars['img_h'] = 500.;
-		vars['img_w'] = 1000.;
-		vars['input_h'] = 224.;
-		vars['input_w'] = 224.;
-		print(vars)
-		module.initialize_py(vars)
+		module.set_variable_value('img_w'.encode('utf-8'), 300.)
 		module.set_variable_value('input_h'.encode('utf-8'), 112.)
 
 # Evaluate
