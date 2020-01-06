@@ -30,7 +30,7 @@ extern "C" int yywrap(void) {
 	}
 	LOG(FATAL);
 }
-[\+\-\*\/\(\)\?\:\,] {return *yytext;}
+[\+\-\*\/\(\)\?\:\,\!] {return *yytext;}
 "<" {return CMP_LT;}
 "<=" {return CMP_LE;}
 ">=" {return CMP_GE;}

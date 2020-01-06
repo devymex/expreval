@@ -30,5 +30,5 @@ def evaluate(str):
 	print('%s=%f' % (str, ret))
 
 initialze()
-evaluate('((img_h < img_w) ? (input_h * max(max(img_h / input_h / 1.2, img_w / input_w / 1.2), 1)) : img_w)')
+evaluate('(!(img_h < img_w) ? (input_h * max(max(img_h / input_h / 1.2, img_w / input_w / 1.2), 1)) : img_w)')
 

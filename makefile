@@ -6,7 +6,7 @@ PYTHON_FLAGS=`pkg-config --cflags --libs python3`
 BUILD_TYPE=RELEASE
 
 ifeq ($(BUILD_TYPE), DEBUG)
-	CXX=g++ -std=c++11 -g -O0
+	CXX=g++ -std=c++11 -g -O0 -D_DEBUG
 else
 	CXX=g++ -std=c++11 -O3
 endif
