@@ -28,7 +28,7 @@ module.set_variable_value('input_h'.encode('utf-8'), 112.)
 # Evaluate
 def evaluate(str):
 	ret = module.evaluate(str.encode('utf-8'))
-	print('%s=%f' % (str, ret))
+	print('%s\n%f' % (str, ret))
 
 evaluate('((img_h < img_w) ? (input_h * max(max(img_h / input_h / 1.2, img_w / input_w / 1.2), 1)) : img_w)')
 

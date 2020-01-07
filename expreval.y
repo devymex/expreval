@@ -39,11 +39,7 @@ double dResult;
 }
 
 %token <val> '+' '-' '*' '/' '?' ':'
-%token <val> FUN_MIN FUN_MAX
-%token <val> OP_LT OP_LE OP_GE OP_GT
-%token <val> OP_EQ OP_NE
-%token <val> CR
-
+%token <val> OP_LT OP_LE OP_GE OP_GT OP_EQ OP_NE CR
 %token <val> CONSTANT VARIABLE BFUNC UFUNC
 %type <val> EXPR CONDITIONAL ADDITIVE MULTIPLICATIVE PRIMARY
 %type <val> LOGICAL_OR LOGICAL_AND EQUALITY RELATIONAL NEGATION
@@ -312,7 +308,7 @@ void _initialize() {
 	ufuncList.clear();
 	namedValues.clear();
 
-	// Add mathmatic CONSTANTs
+	// Add mathmatic constants
 	namedValues["e"] = MakeValue(VT_VAR, varList.size());
 	varList.push_back(M_E);
 
