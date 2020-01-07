@@ -40,42 +40,46 @@ double dResult;
 
 %token <val> '+' '-' '*' '/' '?' ':'
 %token <val> FUN_MIN FUN_MAX
-%token <val> CMP_LT CMP_LE CMP_GE CMP_GT
-%token <val> CMP_EQ CMP_NE 
+%token <val> OP_LT OP_LE OP_GE OP_GT
+%token <val> OP_EQ OP_NE
 %token <val> CR
 
-%token <val> constant variable bfunc ufunc
-%type <val> line expr additive multiplicative primary
-%type <val> logical equality relational negation
+%token <val> CONSTANT VARIABLE BFUNC UFUNC
+%type <val> EXPR CONDITIONAL ADDITIVE MULTIPLICATIVE PRIMARY
+%type <val> LOGICAL_OR LOGICAL_AND EQUALITY RELATIONAL NEGATION
 
-%left LOGIC_OR LOGIC_AND
-%left CMP_EQ CMP_NE 
-%left CMP_LT CMP_LE CMP_GE CMP_GT
-%left '+' '-' '*' '/' '?' ':'
-%precedence NEG
+%right '?' ':'
+%left OP_OR
+%left OP_AND
+%left OP_EQ OP_NE
+%left OP_LT OP_LE OP_GE OP_GT
+%left '+' '-'
+%left '*' '/'
+%right NEG '!'
+%left '(' ')'
 
 %%
 
-line
-: expr CR {
+EXPR
+: CONDITIONAL CR {
 		$$ = $1;
 		dResult = $$.fval;
 #ifdef _DEBUG
-		LOG(INFO) << "expr=" << $$.fval;
+		LOG(INFO) << "CONDITIONAL=" << $$.fval;
 #endif
 		YYACCEPT;
 	}
 ;
 
-expr
-: additive {
+CONDITIONAL
+: ADDITIVE {
 		$$ = $1;
 		$$.type = VT_FLOAT;
 #ifdef _DEBUG
-		LOG(INFO) << "additive=" << $$.fval;
+		LOG(INFO) << "ADDITIVE=" << $$.fval;
 #endif
 	}
-| logical '?' expr ':' expr {
+| LOGICAL_OR '?' CONDITIONAL ':' CONDITIONAL {
 		if ($3.type == VT_INT && $5.type == VT_INT) {
 			$$.ival = $1.ival ? $3.ival : $5.ival;
 			$$.type = VT_INT;
@@ -95,21 +99,30 @@ expr
 ;
 
 
-logical
-: equality {
+LOGICAL_OR
+: LOGICAL_AND {
 		$$ = $1;
 #ifdef _DEBUG
-		LOG(INFO) << "equality=" << $$.ival;
+		LOG(INFO) << "EQUALITY=" << $$.ival;
 #endif
 	}
-| logical LOGIC_OR logical {
+| LOGICAL_OR OP_OR LOGICAL_OR {
 		$$.ival = $1.ival || $3.ival;
 		$$.type = VT_INT;
 #ifdef _DEBUG
 		LOG(INFO) << $1.ival << "||" << $3.ival << " -> " << $$.ival;
 #endif
 	}
-| logical LOGIC_AND logical {
+;
+
+LOGICAL_AND
+: EQUALITY {
+		$$ = $1;
+#ifdef _DEBUG
+		LOG(INFO) << "EQUALITY=" << $$.ival;
+#endif
+	}
+| LOGICAL_AND OP_AND LOGICAL_AND {
 		$$.ival = $1.ival && $3.ival;
 		$$.type = VT_INT;
 #ifdef _DEBUG
@@ -118,56 +131,56 @@ logical
 	}
 ;
 
-equality
-: relational {
+EQUALITY
+: RELATIONAL {
 		$$ = $1;
 #ifdef _DEBUG
-		LOG(INFO) << "relational=" << $$.ival;
+		LOG(INFO) << "RELATIONAL=" << $$.ival;
 #endif
 	}
-| equality CMP_EQ equality {
+| EQUALITY OP_EQ EQUALITY {
 		$$.ival = $1.fval == $3.fval;
 		$$.type = VT_INT;
 #ifdef _DEBUG
 		LOG(INFO) << $1.ival << "==" << $3.ival << " -> " << $$.ival;
 #endif
 	}
-| equality CMP_NE equality {
-		$$.ival = $1.fval == $3.fval; 
+| EQUALITY OP_NE EQUALITY {
+		$$.ival = $1.fval == $3.fval;
 		$$.type = VT_INT;
 #ifdef _DEBUG
 		LOG(INFO) << $1.ival << "!=" << $3.ival << " -> " << $$.ival;
 #endif
 	}
 
-relational
-: negation {
+RELATIONAL
+: NEGATION {
 		$$.ival = $1.ival;
 		$$.type = VT_INT;
 #ifdef _DEBUG
 		LOG(INFO) << "(logical)=" << $$.ival;
 #endif
 	}
-| additive CMP_LT additive {
+| ADDITIVE OP_LT ADDITIVE {
 		$$.ival = (int)($1.fval < $3.fval);
 		$$.type = VT_INT;
 #ifdef _DEBUG
 		LOG(INFO) << $1.fval << "<" << $3.fval << " -> " << $$.ival;
 #endif
 	}
-| additive CMP_LE additive {
+| ADDITIVE OP_LE ADDITIVE {
 		$$.ival = (int)($1.fval <= $3.fval);
 		$$.type = VT_INT;
 		LOG(INFO) << $1.fval << "<=" << $3.fval << " -> " << $$.ival;
 	}
-| additive CMP_GE additive {
+| ADDITIVE OP_GE ADDITIVE {
 		$$.ival = (int)($1.fval >= $3.fval);
 		$$.type = VT_INT;
 #ifdef _DEBUG
 		LOG(INFO) << $1.fval << ">=" << $3.fval << " -> " << $$.ival;
 #endif
 	}
-| additive CMP_GT additive {
+| ADDITIVE OP_GT ADDITIVE {
 		$$.ival = (int)($1.fval > $3.fval);
 		$$.type = VT_INT;
 #ifdef _DEBUG
@@ -176,38 +189,38 @@ relational
 	}
 ;
 
-negation
-: '!' negation {
+NEGATION
+: '!' NEGATION {
 		$$.ival = !$2.ival;
 		$$.type = VT_INT;
 #ifdef _DEBUG
 		LOG(INFO) << "!" << $2.ival << " -> " << $$.ival;
 #endif
 }
-| '(' logical ')' {
+| '(' LOGICAL_OR ')' {
 		$$.ival = $2.ival;
 		$$.type = VT_INT;
 #ifdef _DEBUG
-		LOG(INFO) << "(logical)=" << $$.ival;
+		LOG(INFO) << "(LOGICAL_OR)=" << $$.ival;
 #endif
 	}
 ;
 
-additive
-: multiplicative {
+ADDITIVE
+: MULTIPLICATIVE {
 		$$ = $1;
 #ifdef _DEBUG
-		LOG(INFO) << "multiplicative=" << $$.fval;
+		LOG(INFO) << "MULTIPLICATIVE=" << $$.fval;
 #endif
 	}
-| additive '+' additive {
+| ADDITIVE '+' ADDITIVE {
 		$$.fval = $1.fval + $3.fval;
 		$$.type = VT_FLOAT;
 #ifdef _DEBUG
 		LOG(INFO) << $1.fval << "+" << $3.fval << " -> " << $$.fval;
 #endif
 	}
-| additive '-' additive {
+| ADDITIVE '-' ADDITIVE {
 		$$.fval = $1.fval - $3.fval;
 		$$.type = VT_FLOAT;
 #ifdef _DEBUG
@@ -216,21 +229,21 @@ additive
 	}
 ;
 
-multiplicative
-: primary {
+MULTIPLICATIVE
+: PRIMARY {
 		$$ = $1;
 #ifdef _DEBUG
-		LOG(INFO) << "primary=" << $$.fval;
+		LOG(INFO) << "PRIMARY=" << $$.fval;
 #endif
 	}
-| multiplicative '*' multiplicative {
+| MULTIPLICATIVE '*' MULTIPLICATIVE {
 		$$.fval = $1.fval * $3.fval;
 		$$.type = VT_FLOAT;
 #ifdef _DEBUG
 		LOG(INFO) << $1.fval << "*" << $3.fval << " -> " << $$.fval;
 #endif
 	}
-| multiplicative '/' multiplicative {
+| MULTIPLICATIVE '/' MULTIPLICATIVE {
 		$$.fval = $1.fval / $3.fval;
 		$$.type = VT_FLOAT;
 #ifdef _DEBUG
@@ -239,47 +252,54 @@ multiplicative
 	}
 ;
 
-primary
-: '-' primary %prec NEG {
-		$$.fval = -$2.fval; 
+PRIMARY
+: '-' PRIMARY %prec NEG {
+		$$.fval = -$2.fval;
 		$$.type = VT_FLOAT;
 #ifdef _DEBUG
-		LOG(INFO) << "-(" << $2.fval << ")=" << $$.fval;
+		LOG(INFO) << "-" << $2.fval << "=" << $$.fval;
 #endif
 	}
-| constant {
-		$$.fval = $1.fval; 
-		$$.type = VT_FLOAT;
-#ifdef _DEBUG
-		LOG(INFO) << "constant=" << $$.fval;
-#endif
-	}
-| variable {
-		$$.fval = varList[$1.id]; 
-		$$.type = VT_FLOAT;
-#ifdef _DEBUG
-		LOG(INFO) << "variable=" << $$.fval;
-#endif
-	}
-| bfunc '(' expr ',' expr ')' {
-		$$.fval = bfuncList[$1.id]($3.fval, $5.fval);
-		$$.type = VT_FLOAT;
-#ifdef _DEBUG
-		LOG(INFO) << "bfunc" << $1.id << "(" << $3.fval << "," << $5.fval << ") -> " << $$.fval;
-#endif
-	}
-| ufunc '(' expr ')' {
-		$$.fval = ufuncList[$1.id]($3.fval);
-		$$.type = VT_FLOAT;
-#ifdef _DEBUG
-		LOG(INFO) << "ufunc" << $1.id << "(" << $3.fval << ") -> " << $$.fval;
-#endif
-	}
-| '(' expr ')' {
+| '+' PRIMARY %prec NEG {
 		$$.fval = $2.fval;
 		$$.type = VT_FLOAT;
 #ifdef _DEBUG
-		LOG(INFO) << "(additive)=" << $$.fval;
+		LOG(INFO) << "+" << $2.fval << "=" << $$.fval;
+#endif
+	}
+| CONSTANT {
+		$$.fval = $1.fval;
+		$$.type = VT_FLOAT;
+#ifdef _DEBUG
+		LOG(INFO) << "CONSTANT=" << $$.fval;
+#endif
+	}
+| VARIABLE {
+		$$.fval = varList[$1.id];
+		$$.type = VT_FLOAT;
+#ifdef _DEBUG
+		LOG(INFO) << "VARIABLE=" << $$.fval;
+#endif
+	}
+| BFUNC '(' CONDITIONAL ',' CONDITIONAL ')' {
+		$$.fval = bfuncList[$1.id]($3.fval, $5.fval);
+		$$.type = VT_FLOAT;
+#ifdef _DEBUG
+		LOG(INFO) << "BFUNC" << $1.id << "(" << $3.fval << "," << $5.fval << ") -> " << $$.fval;
+#endif
+	}
+| UFUNC '(' CONDITIONAL ')' {
+		$$.fval = ufuncList[$1.id]($3.fval);
+		$$.type = VT_FLOAT;
+#ifdef _DEBUG
+		LOG(INFO) << "UFUNC" << $1.id << "(" << $3.fval << ") -> " << $$.fval;
+#endif
+	}
+| '(' CONDITIONAL ')' {
+		$$.fval = $2.fval;
+		$$.type = VT_FLOAT;
+#ifdef _DEBUG
+		LOG(INFO) << "(ADDITIVE)=" << $$.fval;
 #endif
 	}
 ;
@@ -292,7 +312,7 @@ void _initialize() {
 	ufuncList.clear();
 	namedValues.clear();
 
-	// Add mathmatic constants
+	// Add mathmatic CONSTANTs
 	namedValues["e"] = MakeValue(VT_VAR, varList.size());
 	varList.push_back(M_E);
 
@@ -402,7 +422,7 @@ extern "C" void set_variable_value(const char *pKey, double dValue) {
 extern "C" double evaluate(const char *pStr) {
 	std::string strExpr = pStr;
 	strExpr.push_back('\n');
-	
+
 	YY_BUFFER_STATE buffer = yy_scan_string(strExpr.c_str());
 	yyparse();
 	yy_delete_buffer(buffer);
