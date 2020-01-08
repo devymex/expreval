@@ -2,20 +2,28 @@
 // Expreval: A "C-like" Syntax Expression Evaluator
 // Yumeng Wang (devymex@gmail.com)
 
+
 #include <cmath>
 #include <functional>
-#include <map>
-
 #include <Python.h>
 
 #include "value.hpp"
 #include "logging.hpp"
+
+#define ADD_UNARY_FUNCTION(func_name) \
+	namedTokens[#func_name] = MakeValue(VT_UFUNC, ufuncList.size()); \
+	ufuncList.push_back([](double v) { return std::func_name(v); });
+
+#define ADD_BINARY_FUNCTION(func_name) \
+	namedTokens[#func_name] = MakeValue(VT_BFUNC, bfuncList.size()); \
+	bfuncList.push_back([](double a, double b) { return std::func_name(a, b); });
 
 typedef struct yy_buffer_state *YY_BUFFER_STATE;
 
 extern int yylex();
 extern int yyparse();
 extern YY_BUFFER_STATE yy_scan_string(const char *str);
+extern YY_BUFFER_STATE yy_scan_bytes (const char *bytes, int len);
 extern void yy_delete_buffer(YY_BUFFER_STATE buffer);
 
 int yyerror(char const *str) {
@@ -28,7 +36,7 @@ std::vector<double> varList;
 std::vector<std::function<double(double, double)>> bfuncList;
 std::vector<std::function<double(double)>> ufuncList;
 
-std::map<std::string, VALUE> namedValues;
+std::map<std::string, VALUE> namedTokens;
 
 double dResult;
 
@@ -306,76 +314,36 @@ void _initialize() {
 	varList.clear();
 	bfuncList.clear();
 	ufuncList.clear();
-	namedValues.clear();
+	namedTokens.clear();
+
+	ADD_UNARY_FUNCTION(log);
+	ADD_UNARY_FUNCTION(log10);
+	ADD_UNARY_FUNCTION(exp);
+	ADD_UNARY_FUNCTION(abs);
+	ADD_UNARY_FUNCTION(ceil);
+	ADD_UNARY_FUNCTION(floor);
+	ADD_UNARY_FUNCTION(cos);
+	ADD_UNARY_FUNCTION(cosh);
+	ADD_UNARY_FUNCTION(acos);
+	ADD_UNARY_FUNCTION(sin);
+	ADD_UNARY_FUNCTION(sinh);
+	ADD_UNARY_FUNCTION(asin);
+	ADD_UNARY_FUNCTION(tan);
+	ADD_UNARY_FUNCTION(tanh);
+	ADD_UNARY_FUNCTION(atan);
+	ADD_UNARY_FUNCTION(sqrt);
+
+	ADD_BINARY_FUNCTION(max);
+	ADD_BINARY_FUNCTION(min);
+	ADD_BINARY_FUNCTION(atan2);
+	ADD_BINARY_FUNCTION(pow);
 
 	// Add mathmatic constants
-	namedValues["e"] = MakeValue(VT_VAR, varList.size());
+	namedTokens["e"] = MakeValue(VT_VAR, varList.size());
 	varList.push_back(M_E);
 
-	namedValues["pi"] = MakeValue(VT_VAR, varList.size());
+	namedTokens["pi"] = MakeValue(VT_VAR, varList.size());
 	varList.push_back(M_PI);
-
-	// Add binary functions
-	namedValues["max"] = MakeValue(VT_BFUNC, bfuncList.size());
-	bfuncList.push_back(std::max<double>);
-
-	namedValues["min"] = MakeValue(VT_BFUNC, bfuncList.size());
-	bfuncList.push_back(std::min<double>);
-
-	namedValues["atan2"] = MakeValue(VT_BFUNC, bfuncList.size());
-	bfuncList.push_back([](double y, double x) { return std::pow(y, x); });
-
-	namedValues["pow"] = MakeValue(VT_BFUNC, bfuncList.size());
-	bfuncList.push_back([](double b, double e) { return std::pow(b, e); });
-
-	// Add unary functions
-	namedValues["log"] = MakeValue(VT_UFUNC, ufuncList.size());
-	ufuncList.push_back([](double v) { return std::log(v); });
-
-	namedValues["log10"] = MakeValue(VT_UFUNC, ufuncList.size());
-	ufuncList.push_back([](double v) { return std::log10(v); });
-
-	namedValues["exp"] = MakeValue(VT_UFUNC, ufuncList.size());
-	ufuncList.push_back([](double v) { return std::exp(v); });
-
-	namedValues["abs"] = MakeValue(VT_UFUNC, ufuncList.size());
-	ufuncList.push_back([](double v) { return std::abs(v); });
-
-	namedValues["ceil"] = MakeValue(VT_UFUNC, ufuncList.size());
-	ufuncList.push_back([](double v) { return std::ceil(v); });
-
-	namedValues["floor"] = MakeValue(VT_UFUNC, ufuncList.size());
-	ufuncList.push_back([](double v) { return std::floor(v); });
-
-	namedValues["cos"] = MakeValue(VT_UFUNC, ufuncList.size());
-	ufuncList.push_back([](double v) { return std::cos(v); });
-
-	namedValues["cosh"] = MakeValue(VT_UFUNC, ufuncList.size());
-	ufuncList.push_back([](double v) { return std::cosh(v); });
-
-	namedValues["acos"] = MakeValue(VT_UFUNC, ufuncList.size());
-	ufuncList.push_back([](double v) { return std::acos(v); });
-
-	namedValues["sin"] = MakeValue(VT_UFUNC, ufuncList.size());
-	ufuncList.push_back([](double v) { return std::sin(v); });
-
-	namedValues["sinh"] = MakeValue(VT_UFUNC, ufuncList.size());
-	ufuncList.push_back([](double v) { return std::sinh(v); });
-
-	namedValues["asin"] = MakeValue(VT_UFUNC, ufuncList.size());
-	ufuncList.push_back([](double v) { return std::asin(v); });
-
-	namedValues["tan"] = MakeValue(VT_UFUNC, ufuncList.size());
-	ufuncList.push_back([](double v) { return std::tan(v); });
-
-	namedValues["tanh"] = MakeValue(VT_UFUNC, ufuncList.size());
-	ufuncList.push_back([](double v) { return std::tanh(v); });
-
-	namedValues["atan"] = MakeValue(VT_UFUNC, ufuncList.size());
-	ufuncList.push_back([](double v) { return std::atan(v); });
-
-	namedValues["sqrt"] = MakeValue(VT_UFUNC, ufuncList.size());
-	ufuncList.push_back([](double v) { return std::sqrt(v); });
 }
 
 extern "C" void initialize_py(PyObject *pPyDict) {
@@ -390,9 +358,9 @@ extern "C" void initialize_py(PyObject *pPyDict) {
 
 		Py_ssize_t nKeyLen;
 		const char *pKey = PyUnicode_AsUTF8(pPyKey);
-		CHECK_EQ(namedValues.count(pKey), 0) << "Name '"
+		CHECK_EQ(namedTokens.count(pKey), 0) << "Name '"
 				<< pKey << "' already exists!";
-		namedValues[pKey] = MakeValue(VT_VAR, varList.size());
+		namedTokens[pKey] = MakeValue(VT_VAR, varList.size());
 		varList.push_back(PyFloat_AsDouble(pPyValue));
 	}
 	Py_XDECREF(pPyDict);
@@ -402,27 +370,50 @@ extern "C" void initialize(const std::map<std::string, double> &varValues) {
 	_initialize();
 
 	for (auto &v : varValues) {
-		CHECK_EQ(namedValues.count(v.first), 0) << "Name '"
+		CHECK_EQ(namedTokens.count(v.first), 0) << "Name '"
 				<< v.first << "' already exists!";
-		namedValues[v.first] = MakeValue(VT_VAR, varList.size());
+		namedTokens[v.first] = MakeValue(VT_VAR, varList.size());
 		varList.push_back(v.second);
 	}
 }
 
 extern "C" void set_variable_value(const char *pKey, double dValue) {
-	auto iFound = namedValues.find(pKey);
-	CHECK(iFound != namedValues.end()) << "Key " << pKey << " not found!";
+	auto iFound = namedTokens.find(pKey);
+	CHECK(iFound != namedTokens.end()) << "Key " << pKey << " not found!";
 	varList[iFound->second.id] = dValue;
 }
 
-extern "C" double evaluate(const char *pStr) {
-	std::string strExpr = pStr;
-	strExpr.push_back('\n');
-
-	YY_BUFFER_STATE buffer = yy_scan_string(strExpr.c_str());
+inline double evaluate_expr_withcr(const char *pStr, int nLen) {
+	auto buffer = yy_scan_bytes(pStr, nLen);
 	yyparse();
 	yy_delete_buffer(buffer);
-
 	return dResult;
 }
 
+extern "C" double evaluate(const char *pStr) {
+	int nLen = strlen(pStr);
+	if (pStr[nLen - 1] == '\n') {
+#ifdef _DEBUG
+		LOG(INFO) << "Parsing expression with carriage return...";
+#endif
+		return evaluate_expr_withcr(pStr, nLen);
+	}
+	const int nLenThres = 250;
+	if (nLen < nLenThres) {
+#ifdef _DEBUG
+		LOG(INFO) << "Parsing expression without carriage return but within "
+				  << nLenThres << " characters...";
+#endif
+		char buffer[nLenThres + 1];
+		memcpy(buffer, pStr, nLen);
+		buffer[nLen] = '\n';
+		return evaluate_expr_withcr(buffer, nLen + 1);
+	}
+#ifdef _DEBUG
+		LOG(INFO) << "Parsing expression without carriage return and longer than "
+				  << nLenThres << " characters...";
+#endif
+	std::string strExpr = pStr;
+	strExpr.push_back('\n');
+	return evaluate_expr_withcr(strExpr.c_str(), strExpr.size());
+}

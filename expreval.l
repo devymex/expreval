@@ -18,8 +18,8 @@ extern "C" int yywrap(void) {
 	return CONSTANT;
 }
 ([a-zA-Z_][a-zA-Z0-9_]*) {
-	auto iValue = namedValues.find(yytext);
-	CHECK(iValue != namedValues.end()) << "Name '"
+	auto iValue = namedTokens.find(yytext);
+	CHECK(iValue != namedTokens.end()) << "Name '"
 			<< yytext << "' not recognized!";
 	yylval.val = iValue->second;
 	switch (iValue->second.type) {
@@ -44,4 +44,3 @@ extern "C" int yywrap(void) {
 .		{LOG(FATAL) << "Lex error: " << yytext;}
 
 %%
-

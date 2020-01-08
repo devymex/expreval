@@ -33,4 +33,3 @@ def evaluate(str):
 evaluate('((img_h < img_w) ? (input_h * max(max(img_h / input_h / 1.2, img_w / input_w / 1.2), 1)) : img_w)')
 
 evaluate('box_x - max(3 * box_w, 4 * box_h) * 1.25 / box_w')
-

@@ -5,25 +5,33 @@
 #define __VALUE_HPP
 
 #include <map>
+#include <string>
 
-enum VALUE_TYPE {VT_UNKNOWN = 0, VT_FLOAT, VT_INT, VT_VAR, VT_BFUNC, VT_UFUNC};
+enum VALUE_TYPE {
+	VT_UNKNOWN = 0,
+	VT_FLOAT,
+	VT_INT,
+	VT_VAR,
+	VT_BFUNC,
+	VT_UFUNC
+};
 
 struct VALUE {
 	union {
 		int ival;
 		double fval;
-		size_t id;
+		uint32_t id;
 	};
 	VALUE_TYPE type;
 };
 
-inline VALUE MakeValue(VALUE_TYPE _vt, size_t _id) {
+inline VALUE MakeValue(VALUE_TYPE _vt, uint32_t _id) {
 	VALUE val;
 	val.type = _vt;
 	val.id = _id;
 	return val;
 }
 
-extern std::map<std::string, VALUE> namedValues;
+extern std::map<std::string, VALUE> namedTokens;
 
-#endif
+#endif // #ifndef __VALUE_HPP
