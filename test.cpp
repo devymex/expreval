@@ -1,9 +1,5 @@
-#include <map>
 #include <iostream>
-
-extern "C" void initialize(const std::map<std::string, double> &vars);
-extern "C" void set_variable_value(const char *pKey, double dValue);
-extern "C" double evaluate(const char *pStr);
+#include "expreval.h"
 
 int main(int nArgCnt, char *ppArgs[]) {
 	std::map<std::string, double> vars;

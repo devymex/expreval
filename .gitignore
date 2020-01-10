@@ -1,4 +1,3 @@
-*.c
-*.h
 *.so
 test
+build/*

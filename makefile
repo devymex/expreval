@@ -1,37 +1,68 @@
 # Expreval: A "C-like" Syntax Expression Evaluator
 # Yumeng Wang (devymex@gmail.com)
 
-PYTHON_FLAGS=`pkg-config --cflags --libs python3`
 
+## CONFIGURATION
 BUILD_TYPE=RELEASE
+BUILD_STATIC_LIBRARY=OFF
+PYTHON_INCLUDE_DIRS=`pkg-config --cflags python3`
+PYTHON_LIBRARIES=`pkg-config --libs python3`
 
-LIB_NAME=libexpreval.so
 
+## OUTPUT FILE NAME
+SHARED_LIBRARY_NAME=libexpreval.so
+STATIC_LIBRARY_NAME=libexpreval.a
+
+
+## BUILD OPTIONS
 ifeq ($(BUILD_TYPE), DEBUG)
-	CXX=g++ -std=c++11 -g -O0 -D_DEBUG
+CXX=g++ -std=c++11 -g -O0 -D_DEBUG
 else
-	CXX=g++ -std=c++11 -O3
+CXX=g++ -std=c++11 -O3
 endif
 
-all: $(LIB_NAME) test
 
-$(LIB_NAME): lex.yy.c y.tab.c
-	$(CXX) $^ -o $(LIB_NAME) -fPIC -shared $(PYTHON_FLAGS)
+## TARGETS
+ifeq ($(BUILD_STATIC_LIBRARY), ON)
+all: $(SHARED_LIBRARY_NAME) $(STATIC_LIBRARY_NAME) test
 
-lex.yy.c: expreval.l
-	lex $<
+test: test.cpp $(STATIC_LIBRARY_NAME)
+	$(CXX) $^ $(STATIC_LIBRARY_NAME) -o $@ $(PYTHON_INCLUDE_DIRS) $(PYTHON_LIBRARIES)
+else
+all: $(SHARED_LIBRARY_NAME) test
 
-y.tab.c: expreval.y
-	yacc $< -d
-
-test: test.cpp
+test: test.cpp $(SHARED_LIBRARY_NAME)
 	$(CXX) $< -o $@ -L. -lexpreval
+endif
+
+$(SHARED_LIBRARY_NAME): build/lex.o build/y.o
+	$(CXX) $^ -o $(SHARED_LIBRARY_NAME) -fPIC -shared $(PYTHON_LIBRARIES)
+
+$(STATIC_LIBRARY_NAME): build/lex.o build/y.o
+	ar rvs $(STATIC_LIBRARY_NAME) $^
+	
+build/lex.o: build/lex.yy.c build/y.tab.h
+	$(CXX) -c $< -o $@ -fPIC -I. $(PYTHON_INCLUDE_DIRS)
+
+build/y.o: build/y.tab.c
+	$(CXX) -c $< -o $@ -fPIC -I. $(PYTHON_INCLUDE_DIRS)
+
+build/lex.yy.c: expreval.l build
+	lex -o $@ $<
+
+build/y.tab.h: build/y.tab.c
+
+build/y.tab.c: expreval.y build
+	yacc $< -d -b build/y
 
 clean:
-	rm -f lex.yy.c
-	rm -f y.tab.c
-	rm -f y.tab.h
+	rm -rf build
 	rm -f test
-	rm -r $(LIB_NAME)
+	rm -f $(SHARED_LIBRARY_NAME)
+	rm -f $(STATIC_LIBRARY_NAME)
+
+build:
+	mkdir -p build
 
 .PHONY: clean
+
