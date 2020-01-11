@@ -4,7 +4,7 @@
 #ifndef __VALUE_HPP
 #define __VALUE_HPP
 
-#include <map>
+#include <unordered_map>
 #include <string>
 
 enum VALUE_TYPE {
@@ -32,6 +32,6 @@ inline VALUE MakeValue(VALUE_TYPE _vt, uint32_t _id) {
 	return val;
 }
 
-extern std::map<std::string, VALUE> namedTokens;
+extern std::unordered_map<std::string, VALUE> namedTokens;
 
 #endif // #ifndef __VALUE_HPP

@@ -31,16 +31,25 @@
 ## 参考
 
 ### 接口
-头文件 `expreval.h` 中定义了全部的 C++ 接口。
+头文件 `expreval.hpp` 中定义了全部的 C/C++ 接口函数。
 
-void initialize(const std::map<std::string, double> &vars);
-程序初始化，可由 `vars` 参数指定用户自定义的变量名和值。
+void initialize();
+程序初始化，通常只需调用一次。每次调用后，所有用户设定的变量都将被清除。
+
+void add_variable(const char *pKey, double dValue);
+添加一个用户变量。
+
+bool is_variable_exists(const char *pKey);
+判断 `pKey` 指定的用户变量是否存在。若存在，返回 true，否则返回 false。
+
+bool remove_variable(const char *pKey);
+删除 `pKey` 指定的用户变量。若删除成功，返回 true，若不存在该变量，返回 false。
 
 void set_variable_value(const char *pKey, double dValue);
-更改 `pKey` 指定的参数名的值为 `dValue` ，该参数名只能在调用 `initialize` 函数进行初始化时设定。若指定的参数名不存在，则会抛出异常。
+更改 `pKey` 指定的参数名的值为 `dValue` ，若设置成功，返回 true，若不存在该变量，返回 false。
 
 double evaluate(const char *pStr);
-计算 `pStr` 指定的表达式的值，并返回结果。若表达式字符串末尾含有字符 '\n'，计算性能会有 3% 左右的提升。
+计算 `pStr` 指定的表达式的值，并返回结果。若表达式字符串末尾以字符 '\n' 结束，计算性能会有 3% 左右的提升。
 
 ### 支持的操作符（按优先级由高到低排列）
 

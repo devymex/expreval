@@ -36,7 +36,7 @@ std::vector<double> varList;
 std::vector<std::function<double(double, double)>> bfuncList;
 std::vector<std::function<double(double)>> ufuncList;
 
-std::map<std::string, VALUE> namedTokens;
+std::unordered_map<std::string, VALUE> namedTokens;
 
 double dResult;
 
@@ -310,7 +310,7 @@ PRIMARY
 
 %%
 
-void _initialize() {
+extern "C" void initialize() {
 	varList.clear();
 	bfuncList.clear();
 	ufuncList.clear();
@@ -346,41 +346,34 @@ void _initialize() {
 	varList.push_back(M_PI);
 }
 
-extern "C" void initialize_py(PyObject *pPyDict) {
-	_initialize();
-
-	PyObject *pPyKey, *pPyValue;
-	Py_ssize_t pos = 0;
-
-	while (PyDict_Next(pPyDict, &pos, &pPyKey, &pPyValue)) {
-		CHECK(PyUnicode_Check(pPyKey));
-		CHECK(PyFloat_Check(pPyValue));
-
-		Py_ssize_t nKeyLen;
-		const char *pKey = PyUnicode_AsUTF8(pPyKey);
-		CHECK_EQ(namedTokens.count(pKey), 0) << "Name '"
-				<< pKey << "' already exists!";
-		namedTokens[pKey] = MakeValue(VT_VAR, varList.size());
-		varList.push_back(PyFloat_AsDouble(pPyValue));
-	}
-	Py_XDECREF(pPyDict);
+extern "C" void add_variable(const char *pKey, double dValue) {
+	std::string strKey = pKey;
+	CHECK_EQ(namedTokens.count(strKey), 0) << "Name '"
+			<< strKey << "' already exists!";
+	namedTokens[strKey] = MakeValue(VT_VAR, varList.size());
+	varList.push_back(dValue);
 }
 
-extern "C" void initialize(const std::map<std::string, double> &varValues) {
-	_initialize();
-
-	for (auto &v : varValues) {
-		CHECK_EQ(namedTokens.count(v.first), 0) << "Name '"
-				<< v.first << "' already exists!";
-		namedTokens[v.first] = MakeValue(VT_VAR, varList.size());
-		varList.push_back(v.second);
-	}
+extern "C" bool is_variable_exists(const char *pKey) {
+	return namedTokens.count(pKey) > 0;
 }
 
-extern "C" void set_variable_value(const char *pKey, double dValue) {
-	auto iFound = namedTokens.find(pKey);
-	CHECK(iFound != namedTokens.end()) << "Key " << pKey << " not found!";
-	varList[iFound->second.id] = dValue;
+extern "C" bool remove_variable(const char *pKey) {
+	auto iVar = namedTokens.find(pKey);
+	if (iVar == namedTokens.end() || iVar->second.type != VT_VAR) {
+		return false;
+	}
+	namedTokens.erase(iVar);
+	return true;
+}
+
+extern "C" bool set_variable_value(const char *pKey, double dValue) {
+	auto iVar = namedTokens.find(pKey);
+	if (iVar == namedTokens.end() || iVar->second.type != VT_VAR) {
+		return false;
+	}
+	varList[iVar->second.id] = dValue;
+	return true;
 }
 
 inline double evaluate_expr_withcr(const char *pStr, int nLen) {
@@ -416,4 +409,135 @@ extern "C" double evaluate(const char *pStr) {
 	std::string strExpr = pStr;
 	strExpr.push_back('\n');
 	return evaluate_expr_withcr(strExpr.c_str(), strExpr.size());
+}
+
+static PyObject* initialize_py(PyObject *self) {
+	initialize();
+	Py_RETURN_NONE;
+}
+
+static PyObject* add_variable_py(PyObject *self, PyObject *args) {
+	int nArgCnt = PyTuple_GET_SIZE(args);
+	CHECK_GE(nArgCnt, 1) << "The number of arguments be greater or equal to 1";
+
+	PyObject *pyArg0 = PyTuple_GET_ITEM(args, 0);
+	CHECK(PyUnicode_Check(pyArg0)) << "The first arguments should be a string";
+	const char *pKey = PyUnicode_AsUTF8(pyArg0);
+	//Py_XDECREF(pyArg0);
+
+	double dValue = 0;
+	if (nArgCnt > 1) {
+		PyObject *pyArg1 = PyTuple_GET_ITEM(args, 1);
+		CHECK(PyFloat_Check(pyArg1) || PyLong_Check(pyArg1))
+				<< "The second arguments should be a float or int";
+
+		dValue = PyFloat_AsDouble(pyArg1);
+		//Py_XDECREF(pyArg1);
+	}
+	Py_XDECREF(args);
+
+	add_variable(pKey, dValue);
+
+	Py_RETURN_NONE;
+}
+
+static PyObject* is_variable_exists_py(PyObject *self, PyObject *pyKey) {
+	CHECK(PyUnicode_Check(pyKey)) << "The first arguments hould be a string";
+	const char *pKey = PyUnicode_AsUTF8(pyKey);
+	bool bExists = is_variable_exists(pKey);
+	Py_XDECREF(pyKey);
+	return PyBool_FromLong(bExists);
+}
+
+static PyObject* remove_variable_py(PyObject *self, PyObject *pyKey) {
+	CHECK(PyUnicode_Check(pyKey)) << "The first arguments hould be a string";
+	const char *pKey = PyUnicode_AsUTF8(pyKey);
+	bool bRemoved = remove_variable(pKey);
+	Py_XDECREF(pyKey);
+	return PyBool_FromLong(bRemoved);
+}
+
+static PyObject* set_variable_value_py(PyObject *self, PyObject *args) {
+	int nArgCnt = PyTuple_GET_SIZE(args);
+	CHECK_EQ(nArgCnt, 2) << "Arguments should be consists of a key (string) "
+			"and a value (float)";
+
+	PyObject *pyArg0 = PyTuple_GET_ITEM(args, 0);
+	CHECK(PyUnicode_Check(pyArg0)) << "The first arguments should be a string";
+	//Py_XDECREF(pyArg0);
+
+	PyObject *pyArg1 = PyTuple_GET_ITEM(args, 1);
+	CHECK(PyFloat_Check(pyArg1) || PyLong_Check(pyArg1))
+			<< "The second arguments should be a float or int";
+	//Py_XDECREF(pyArg1);
+	Py_XDECREF(args);
+
+	const char *pKey = PyUnicode_AsUTF8(pyArg0);
+	double dValue = PyFloat_AsDouble(pyArg1);
+	set_variable_value(pKey, dValue);
+
+	Py_RETURN_NONE;
+}
+
+static PyObject* evaluate_py(PyObject *self, PyObject *pyKey) {
+	CHECK(PyUnicode_Check(pyKey)) << "The first arguments hould be a string";
+	const char *pExpr = PyUnicode_AsUTF8(pyKey);
+	double dResult = evaluate(pExpr);
+	Py_XDECREF(pyKey);
+	return PyFloat_FromDouble(dResult);
+}
+
+static PyMethodDef methods[] = {
+	{
+		"initialize",
+		(PyCFunction)initialize_py,
+		METH_NOARGS,
+		"Reset all variable and re-initialize expreval: initialize()"
+	},
+
+	{
+		"add_variable",
+		(PyCFunction)add_variable_py,
+		METH_VARARGS,
+		"Add an variable with or without a value: add_variable('var1', 1.0)"
+	},
+
+	{
+		"is_variable_exists",
+		(PyCFunction)is_variable_exists_py,
+		METH_O,
+		"Check wether the specific variable exists: print(is_variable_exists('var2'))"
+	},
+
+	{
+		"remove_variable",
+		(PyCFunction)remove_variable_py,
+		METH_O,
+		"Remove a configured variable: remove_variable('var1')"
+	},
+
+	{
+		"set_variable_value",
+		(PyCFunction)set_variable_value_py,
+		METH_VARARGS,
+		"Set value of a exists variable: set_variable_value('var1', 2.0)"
+	},
+
+	{
+		"evaluate",
+		(PyCFunction)evaluate_py,
+		METH_O,
+		"Evaluate expression: print('2 * (var1 + 1.0)')"
+	},
+
+	{ nullptr, nullptr, 0, nullptr }
+};
+
+static struct PyModuleDef libexpreval_Module = {PyModuleDef_HEAD_INIT,
+	"libexpreval", "", -1, methods
+	};
+
+PyMODINIT_FUNC PyInit_libexpreval(void) {
+	initialize();
+	return PyModule_Create(&libexpreval_Module);
 }
