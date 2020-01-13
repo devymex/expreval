@@ -24,20 +24,24 @@ makefile 文件中的配置项包括：
 * PYTHON_INCLUDE_DIRS：指定 Python.h 文件所在路径的 g++ 编译器选项。该选项的格式为-I<路径>，如 `-I/usr/include/python3.6m`。
 * PYTHON_LIBRARIES：指定 Python3 的共享库的链接器选项。该选项的格式为 -l<共享库名称>，如 `-lpython3.6m`。
 
-注：通常情况下，若系统正确安装了 pkg-config 和 libpython3-dev 两个软件包，使用 `pkg-config --cflags python3` 命令可以自动获取 PYTHON_INCLUDE_DIRS 所需的选项值，使用 `pkg-config --libs python3` 命令可以自动获取 PYTHON_LIBRARIES 所需的选项值。若 pkg-config 命令失败，可以自行指定正确的路径。此外，PYTHON_LIBRARIES也可指定为如下自动获取命令：
+注：通常情况下，若系统正确安装了 pkg-config 和 libpython3-dev 两个软件包，使用 `pkg-config --cflags python3` 命令可以自动获取 PYTHON_INCLUDE_DIRS 所需的选项值，使用 `pkg-config --libs python3` 命令可以自动获取 PYTHON_LIBRARIES 所需的选项值。若 pkg-config 命令失败，可以自行指定正确的路径。此外，PYTHON_LIBRARIES 也可指定为如下自动获取命令：
 `-l$(python3 -c "from distutils.sysconfig import get_python_lib; print(get_python_lib())")`
 
-### 运行测试程序
+### 例程
 
-执行命令 `env LD_LIBRARY_PATH=$(pwd):$LD_LIBRARY_PATH ./test` 测试 C 接口，阅读 test.cpp 了解 C 接口调用方法。
+项目生成成功后，可执行命令：
+```env LD_LIBRARY_PATH=$(pwd):$LD_LIBRARY_PATH ./test```
+运行例程测试 C/C++ 接口，执行命令：
+```python test.py```
+运行例程测试 Python 接口。
 
-执行命令 `python test.py` 测试 Python 接口，阅读 test.py 了解 Python 接口调用方法。
+C/C++ 例程参见 test.cpp 文件，Python 例程参见 test.py 文件。
 
 ## 参考
 
 ### C/C++ 接口
 
-头文件 expreval.hpp 中定义了全部的 C/C++ 接口函数。
+头文件 expreval.h 中定义了全部的 C/C++ 接口函数。
 
 * void initialize()
 
@@ -56,15 +60,15 @@ makefile 文件中的配置项包括：
 
 * int set_variable_value(const char *pKey, double dValue);
 
-将 pKey 指定的参数名的值更改为 dValue 指定的值。
+将 pKey 指定的用户变量的值设置为 dValue 指定的值。
 若设置成功，返回 0，若该变量不存在，返回 -1。
 
 * int get_variable_value(const char *pKey, double *pValue);
 
-获取 pKey 指定的参数名的值，存入 pValue 中 。
+获取 pKey 指定的用户变量的值，存入 pValue 中 。
 若获取成功，返回 0，若该变量不存在，返回 -1。
 
-double evaluate(const char *pStr);
+* double evaluate(const char *pStr);
 
 计算 pStr 指定的表达式的值，并返回结果。
 若表达式字符串末尾以字符 '\n' 结束，计算性能会有 3% 左右的提升。
@@ -183,4 +187,4 @@ double evaluate(const char *pStr);
 
 * C 接口测试程序不能运行：将工程目录加入环境变量 LD_LIBRARY_PATH ；
 
-* 计算结果不正确：编辑测试例程，填入有问题的表达式和变量，然后生成DEBUG版本的程序库，再次运行测试程序后可通过 LOG 信息定位问题。
+* 计算结果不正确：编辑测试例程，填入有问题的表达式和变量，然后生成 DEBUG 版本的程序库，再次运行测试程序后可通过 LOG 信息定位问题。
