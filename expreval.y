@@ -346,34 +346,43 @@ extern "C" void initialize() {
 	varList.push_back(M_PI);
 }
 
-extern "C" void add_variable(const char *pKey, double dValue) {
+extern "C" int add_variable(const char *pKey, double dValue) {
 	std::string strKey = pKey;
-	CHECK_EQ(namedTokens.count(strKey), 0) << "Name '"
-			<< strKey << "' already exists!";
+	if (namedTokens.count(strKey) != 0) {
+		return -1;
+	}
 	namedTokens[strKey] = MakeValue(VT_VAR, varList.size());
 	varList.push_back(dValue);
+	return 0;
 }
 
-extern "C" bool is_variable_exists(const char *pKey) {
-	return namedTokens.count(pKey) > 0;
-}
-
-extern "C" bool remove_variable(const char *pKey) {
+extern "C" int remove_variable(const char *pKey) {
 	auto iVar = namedTokens.find(pKey);
 	if (iVar == namedTokens.end() || iVar->second.type != VT_VAR) {
-		return false;
+		return -1;
 	}
 	namedTokens.erase(iVar);
-	return true;
+	return 0;
 }
 
-extern "C" bool set_variable_value(const char *pKey, double dValue) {
+extern "C" int set_variable_value(const char *pKey, double dValue) {
 	auto iVar = namedTokens.find(pKey);
+	if (iVar == namedTokens.end()) LOG(INFO) << pKey;
+	if (iVar->second.type != VT_VAR) LOG(INFO);
 	if (iVar == namedTokens.end() || iVar->second.type != VT_VAR) {
-		return false;
+		return -1;
 	}
 	varList[iVar->second.id] = dValue;
-	return true;
+	return 0;
+}
+
+extern "C" int get_variable_value(const char *pKey, double *pValue) {
+	auto iVar = namedTokens.find(pKey);
+	if (iVar == namedTokens.end() || iVar->second.type != VT_VAR) {
+		return -1;
+	}
+	*pValue = varList[iVar->second.id];
+	return 0;
 }
 
 inline double evaluate_expr_withcr(const char *pStr, int nLen) {
@@ -421,40 +430,29 @@ static PyObject* add_variable_py(PyObject *self, PyObject *args) {
 	CHECK_GE(nArgCnt, 1) << "The number of arguments be greater or equal to 1";
 
 	PyObject *pyArg0 = PyTuple_GET_ITEM(args, 0);
+	CHECK_NOTNULL(pyArg0);
 	CHECK(PyUnicode_Check(pyArg0)) << "The first arguments should be a string";
 	const char *pKey = PyUnicode_AsUTF8(pyArg0);
-	//Py_XDECREF(pyArg0);
 
 	double dValue = 0;
 	if (nArgCnt > 1) {
 		PyObject *pyArg1 = PyTuple_GET_ITEM(args, 1);
+		CHECK_NOTNULL(pyArg1);
 		CHECK(PyFloat_Check(pyArg1) || PyLong_Check(pyArg1))
 				<< "The second arguments should be a float or int";
-
 		dValue = PyFloat_AsDouble(pyArg1);
-		//Py_XDECREF(pyArg1);
 	}
-	Py_XDECREF(args);
 
-	add_variable(pKey, dValue);
+	bool bSuccess = (add_variable(pKey, dValue) == 0);
 
-	Py_RETURN_NONE;
-}
-
-static PyObject* is_variable_exists_py(PyObject *self, PyObject *pyKey) {
-	CHECK(PyUnicode_Check(pyKey)) << "The first arguments hould be a string";
-	const char *pKey = PyUnicode_AsUTF8(pyKey);
-	bool bExists = is_variable_exists(pKey);
-	Py_XDECREF(pyKey);
-	return PyBool_FromLong(bExists);
+	return PyBool_FromLong(bSuccess);
 }
 
 static PyObject* remove_variable_py(PyObject *self, PyObject *pyKey) {
 	CHECK(PyUnicode_Check(pyKey)) << "The first arguments hould be a string";
 	const char *pKey = PyUnicode_AsUTF8(pyKey);
-	bool bRemoved = remove_variable(pKey);
-	Py_XDECREF(pyKey);
-	return PyBool_FromLong(bRemoved);
+	bool bSuccess = (remove_variable(pKey) == 0);
+	return PyBool_FromLong(bSuccess);
 }
 
 static PyObject* set_variable_value_py(PyObject *self, PyObject *args) {
@@ -463,27 +461,37 @@ static PyObject* set_variable_value_py(PyObject *self, PyObject *args) {
 			"and a value (float)";
 
 	PyObject *pyArg0 = PyTuple_GET_ITEM(args, 0);
+	CHECK_NOTNULL(pyArg0);
 	CHECK(PyUnicode_Check(pyArg0)) << "The first arguments should be a string";
-	//Py_XDECREF(pyArg0);
 
 	PyObject *pyArg1 = PyTuple_GET_ITEM(args, 1);
+	CHECK_NOTNULL(pyArg1);
 	CHECK(PyFloat_Check(pyArg1) || PyLong_Check(pyArg1))
 			<< "The second arguments should be a float or int";
-	//Py_XDECREF(pyArg1);
-	Py_XDECREF(args);
 
 	const char *pKey = PyUnicode_AsUTF8(pyArg0);
+	LOG(INFO) << pKey;
 	double dValue = PyFloat_AsDouble(pyArg1);
-	set_variable_value(pKey, dValue);
+	bool bSuccess = (set_variable_value(pKey, dValue) == 0);
 
-	Py_RETURN_NONE;
+	return PyBool_FromLong(bSuccess);
+}
+
+static PyObject* get_variable_value_py(PyObject *self, PyObject *pyKey) {
+	CHECK(PyUnicode_Check(pyKey)) << "The first arguments hould be a string";
+	const char *pKey = PyUnicode_AsUTF8(pyKey);
+	double dValue = 0.;
+	int nr = get_variable_value(pKey, &dValue);
+	if (nr == 0) {
+		Py_RETURN_NONE;
+	}
+	return PyFloat_FromDouble(dValue);
 }
 
 static PyObject* evaluate_py(PyObject *self, PyObject *pyKey) {
 	CHECK(PyUnicode_Check(pyKey)) << "The first arguments hould be a string";
 	const char *pExpr = PyUnicode_AsUTF8(pyKey);
 	double dResult = evaluate(pExpr);
-	Py_XDECREF(pyKey);
 	return PyFloat_FromDouble(dResult);
 }
 
@@ -503,13 +511,6 @@ static PyMethodDef methods[] = {
 	},
 
 	{
-		"is_variable_exists",
-		(PyCFunction)is_variable_exists_py,
-		METH_O,
-		"Check wether the specific variable exists: print(is_variable_exists('var2'))"
-	},
-
-	{
 		"remove_variable",
 		(PyCFunction)remove_variable_py,
 		METH_O,
@@ -521,6 +522,13 @@ static PyMethodDef methods[] = {
 		(PyCFunction)set_variable_value_py,
 		METH_VARARGS,
 		"Set value of a exists variable: set_variable_value('var1', 2.0)"
+	},
+
+	{
+		"get_variable_value",
+		(PyCFunction)get_variable_value_py,
+		METH_O,
+		"Check wether the specific variable exists: print(get_variable_value('var2'))"
 	},
 
 	{

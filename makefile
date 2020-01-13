@@ -40,7 +40,7 @@ $(SHARED_LIBRARY_NAME): build/lex.o build/y.o
 
 $(STATIC_LIBRARY_NAME): build/lex.o build/y.o
 	ar rvs $(STATIC_LIBRARY_NAME) $^
-	
+
 build/lex.o: build/lex.yy.c build/y.tab.h
 	$(CXX) -c $< -o $@ -fPIC -I. $(PYTHON_INCLUDE_DIRS)
 

@@ -14,9 +14,7 @@ expr.add_variable("box_w", 400)
 expr.add_variable("box_h", 200)
 expr.add_variable("_bad_var")
 
-if expr.is_variable_exists('_bad_var'):
-	expr.remove_variable('_bad_var')
-
+expr.remove_variable('_bad_var')
 expr.set_variable_value('input_h', 112)
 
 # Evaluate
