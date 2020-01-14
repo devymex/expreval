@@ -181,10 +181,8 @@ C/C++ 例程参见 test.cpp 文件，Python 例程参见 test.py 文件。
 
 ## Q&A
 
-* 生成DEBUG版本：编辑 makefile 文件，将 BUILD_TYPE 变量置为 DEBUG；
-
 * 生成失败：编辑 makefile 文件，修改 PYTHON_FLAGS 变量以适配当前系统环境；
 
-* C 接口测试程序不能运行：将工程目录加入环境变量 LD_LIBRARY_PATH ；
+* C/C++ 接口测试程序不能运行：将工程目录加入环境变量 LD_LIBRARY_PATH ；
 
 * 计算结果不正确：编辑测试例程，填入有问题的表达式和变量，然后生成 DEBUG 版本的程序库，再次运行测试程序后可通过 LOG 信息定位问题。

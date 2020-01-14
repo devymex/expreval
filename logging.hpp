@@ -23,6 +23,8 @@
 #define DMLC_LOG_STACK_TRACE_SIZE 10
 #endif
 
+#define DMLC_LOG_FATAL_THROW 1
+
 #define DMLC_THROW_EXCEPTION noexcept(false)
 
 namespace dmlc {

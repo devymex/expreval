@@ -426,72 +426,95 @@ static PyObject* initialize_py(PyObject *self) {
 }
 
 static PyObject* add_variable_py(PyObject *self, PyObject *args) {
-	int nArgCnt = PyTuple_GET_SIZE(args);
-	CHECK_GE(nArgCnt, 1) << "The number of arguments be greater or equal to 1";
+	try {
+		int nArgCnt = PyTuple_GET_SIZE(args);
+		CHECK_GE(nArgCnt, 1) << "The number of arguments be greater or equal to 1";
 
-	PyObject *pyArg0 = PyTuple_GET_ITEM(args, 0);
-	CHECK_NOTNULL(pyArg0);
-	CHECK(PyUnicode_Check(pyArg0)) << "The first arguments should be a string";
-	const char *pKey = PyUnicode_AsUTF8(pyArg0);
+		PyObject *pyArg0 = PyTuple_GET_ITEM(args, 0);
+		CHECK_NOTNULL(pyArg0);
+		CHECK(PyUnicode_Check(pyArg0)) << "The first arguments should be a string";
+		const char *pKey = PyUnicode_AsUTF8(pyArg0);
 
-	double dValue = 0;
-	if (nArgCnt > 1) {
+		double dValue = 0;
+		if (nArgCnt > 1) {
+			PyObject *pyArg1 = PyTuple_GET_ITEM(args, 1);
+			CHECK_NOTNULL(pyArg1);
+			CHECK(PyFloat_Check(pyArg1) || PyLong_Check(pyArg1))
+					<< "The second arguments should be a float or int";
+			dValue = PyFloat_AsDouble(pyArg1);
+		}
+		CHECK_EQ(add_variable(pKey, dValue), 0) << "variable '" << pKey << "'"
+				<< " already exists";
+
+	} catch(const dmlc::Error &e) {
+		PyErr_SetString(PyExc_RuntimeError, e.what());
+		return NULL;
+	}
+	Py_RETURN_NONE;
+}
+
+static PyObject* remove_variable_py(PyObject *self, PyObject *pyKey) {
+	try {
+		CHECK(PyUnicode_Check(pyKey)) << "The first arguments hould be a string";
+		const char *pKey = PyUnicode_AsUTF8(pyKey);
+		CHECK_EQ(remove_variable(pKey), 0)
+				<< "Variable not found: '" << pKey << "'";
+	} catch(const dmlc::Error &e) {
+		PyErr_SetString(PyExc_RuntimeError, e.what());
+		return NULL;
+	}
+	Py_RETURN_NONE;
+}
+
+static PyObject* set_variable_value_py(PyObject *self, PyObject *args) {
+	try {
+		int nArgCnt = PyTuple_GET_SIZE(args);
+		CHECK_EQ(nArgCnt, 2) << "Arguments should be consists of a key (string) "
+				"and a value (float)";
+
+		PyObject *pyArg0 = PyTuple_GET_ITEM(args, 0);
+		CHECK_NOTNULL(pyArg0);
+		CHECK(PyUnicode_Check(pyArg0)) << "The first arguments should be a string";
+
 		PyObject *pyArg1 = PyTuple_GET_ITEM(args, 1);
 		CHECK_NOTNULL(pyArg1);
 		CHECK(PyFloat_Check(pyArg1) || PyLong_Check(pyArg1))
 				<< "The second arguments should be a float or int";
-		dValue = PyFloat_AsDouble(pyArg1);
+
+		const char *pKey = PyUnicode_AsUTF8(pyArg0);
+		double dValue = PyFloat_AsDouble(pyArg1);
+		CHECK_EQ(set_variable_value(pKey, dValue), 0)
+				<< "Variable not found: '" << pKey << "'";
+
+	} catch(const dmlc::Error &e) {
+		PyErr_SetString(PyExc_RuntimeError, e.what());
+		return NULL;
 	}
-
-	bool bSuccess = (add_variable(pKey, dValue) == 0);
-
-	return PyBool_FromLong(bSuccess);
-}
-
-static PyObject* remove_variable_py(PyObject *self, PyObject *pyKey) {
-	CHECK(PyUnicode_Check(pyKey)) << "The first arguments hould be a string";
-	const char *pKey = PyUnicode_AsUTF8(pyKey);
-	bool bSuccess = (remove_variable(pKey) == 0);
-	return PyBool_FromLong(bSuccess);
-}
-
-static PyObject* set_variable_value_py(PyObject *self, PyObject *args) {
-	int nArgCnt = PyTuple_GET_SIZE(args);
-	CHECK_EQ(nArgCnt, 2) << "Arguments should be consists of a key (string) "
-			"and a value (float)";
-
-	PyObject *pyArg0 = PyTuple_GET_ITEM(args, 0);
-	CHECK_NOTNULL(pyArg0);
-	CHECK(PyUnicode_Check(pyArg0)) << "The first arguments should be a string";
-
-	PyObject *pyArg1 = PyTuple_GET_ITEM(args, 1);
-	CHECK_NOTNULL(pyArg1);
-	CHECK(PyFloat_Check(pyArg1) || PyLong_Check(pyArg1))
-			<< "The second arguments should be a float or int";
-
-	const char *pKey = PyUnicode_AsUTF8(pyArg0);
-	LOG(INFO) << pKey;
-	double dValue = PyFloat_AsDouble(pyArg1);
-	bool bSuccess = (set_variable_value(pKey, dValue) == 0);
-
-	return PyBool_FromLong(bSuccess);
+	Py_RETURN_NONE;
 }
 
 static PyObject* get_variable_value_py(PyObject *self, PyObject *pyKey) {
-	CHECK(PyUnicode_Check(pyKey)) << "The first arguments hould be a string";
-	const char *pKey = PyUnicode_AsUTF8(pyKey);
-	double dValue = 0.;
-	int nr = get_variable_value(pKey, &dValue);
-	if (nr == 0) {
-		Py_RETURN_NONE;
+	try {
+		CHECK(PyUnicode_Check(pyKey)) << "The first arguments hould be a string";
+		const char *pKey = PyUnicode_AsUTF8(pyKey);
+		double dValue = 0.;
+		CHECK_EQ(get_variable_value(pKey, &dValue), 0) << pKey;
+	} catch(const dmlc::Error &e) {
+		PyErr_SetString(PyExc_RuntimeError, e.what());
+		return NULL;
 	}
-	return PyFloat_FromDouble(dValue);
+	Py_RETURN_NONE;
 }
 
 static PyObject* evaluate_py(PyObject *self, PyObject *pyKey) {
-	CHECK(PyUnicode_Check(pyKey)) << "The first arguments hould be a string";
-	const char *pExpr = PyUnicode_AsUTF8(pyKey);
-	double dResult = evaluate(pExpr);
+	try {
+		CHECK(PyUnicode_Check(pyKey)) << "The first arguments hould be a string";
+		const char *pExpr = PyUnicode_AsUTF8(pyKey);
+		double dResult = evaluate(pExpr);
+	} catch(const dmlc::Error &e) {
+		PyErr_SetString(PyExc_RuntimeError, e.what());
+		return NULL;
+	}
 	return PyFloat_FromDouble(dResult);
 }
 
