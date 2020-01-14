@@ -17,6 +17,7 @@ try:
 	expr.remove_variable('_bad_var')
 except RuntimeError as msg:
 	print(msg)
+
 expr.set_variable_value('input_h', 112)
 
 # Evaluate

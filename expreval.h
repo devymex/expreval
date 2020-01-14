@@ -3,6 +3,8 @@
 
 extern "C" void initialize();
 
+extern "C" const char* format_error_message(int nErrCode);
+
 extern "C" int add_variable(const char *pKey, double dValue);
 
 extern "C" int remove_variable(const char *pKey);

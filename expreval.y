@@ -346,43 +346,65 @@ extern "C" void initialize() {
 	varList.push_back(M_PI);
 }
 
-extern "C" int add_variable(const char *pKey, double dValue) {
-	std::string strKey = pKey;
-	if (namedTokens.count(strKey) != 0) {
-		return -1;
+#define EXPREVAL_NO_ERROR 0
+#define EXPREVAL_VAR_ALREADY_SET 1
+#define EXPREVAL_VAR_NOT_EXISTS 2
+
+extern "C" const char* format_error_message(int nErrCode) {
+	switch (nErrCode) {
+	case EXPREVAL_NO_ERROR: return "No error";
+	case EXPREVAL_VAR_ALREADY_SET: return "Variable already set";
+	case EXPREVAL_VAR_NOT_EXISTS: return "Variable not exists";
+	default: break;
 	}
-	namedTokens[strKey] = MakeValue(VT_VAR, varList.size());
-	varList.push_back(dValue);
-	return 0;
+	return "Unknown error code";
+}
+
+extern "C" int add_variable(const char *pKey, double dValue) {
+	int nErrCode = 0;
+	std::string strKey = pKey;
+	if (namedTokens.count(strKey) == 0) {
+		namedTokens[strKey] = MakeValue(VT_VAR, varList.size());
+		varList.push_back(dValue);
+	} else {
+		nErrCode = EXPREVAL_VAR_ALREADY_SET;
+	}
+	return nErrCode;
 }
 
 extern "C" int remove_variable(const char *pKey) {
+	int nErrCode = 0;
 	auto iVar = namedTokens.find(pKey);
-	if (iVar == namedTokens.end() || iVar->second.type != VT_VAR) {
-		return -1;
+	if (iVar != namedTokens.end() && iVar->second.type == VT_VAR) {
+		namedTokens.erase(iVar);
+	} else {
+		nErrCode = EXPREVAL_VAR_NOT_EXISTS;
 	}
-	namedTokens.erase(iVar);
-	return 0;
+	return nErrCode;
 }
 
 extern "C" int set_variable_value(const char *pKey, double dValue) {
+	int nErrCode = 0;
 	auto iVar = namedTokens.find(pKey);
 	if (iVar == namedTokens.end()) LOG(INFO) << pKey;
 	if (iVar->second.type != VT_VAR) LOG(INFO);
-	if (iVar == namedTokens.end() || iVar->second.type != VT_VAR) {
-		return -1;
+	if (iVar != namedTokens.end() && iVar->second.type == VT_VAR) {
+		varList[iVar->second.id] = dValue;
+	} else {
+		nErrCode = EXPREVAL_VAR_NOT_EXISTS;
 	}
-	varList[iVar->second.id] = dValue;
-	return 0;
+	return nErrCode;
 }
 
 extern "C" int get_variable_value(const char *pKey, double *pValue) {
+	int nErrCode = 0;
 	auto iVar = namedTokens.find(pKey);
-	if (iVar == namedTokens.end() || iVar->second.type != VT_VAR) {
-		return -1;
+	if (iVar != namedTokens.end() && iVar->second.type == VT_VAR) {
+		*pValue = varList[iVar->second.id];
+	} else {
+		nErrCode = EXPREVAL_VAR_NOT_EXISTS;
 	}
-	*pValue = varList[iVar->second.id];
-	return 0;
+	return nErrCode;
 }
 
 inline double evaluate_expr_withcr(const char *pStr, int nLen) {
@@ -443,8 +465,8 @@ static PyObject* add_variable_py(PyObject *self, PyObject *args) {
 					<< "The second arguments should be a float or int";
 			dValue = PyFloat_AsDouble(pyArg1);
 		}
-		CHECK_EQ(add_variable(pKey, dValue), 0) << "variable '" << pKey << "'"
-				<< " already exists";
+		int nRet = add_variable(pKey, dValue);
+		CHECK_EQ(nRet, 0) << format_error_message(nRet);
 
 	} catch(const dmlc::Error &e) {
 		PyErr_SetString(PyExc_RuntimeError, e.what());
@@ -457,8 +479,8 @@ static PyObject* remove_variable_py(PyObject *self, PyObject *pyKey) {
 	try {
 		CHECK(PyUnicode_Check(pyKey)) << "The first arguments hould be a string";
 		const char *pKey = PyUnicode_AsUTF8(pyKey);
-		CHECK_EQ(remove_variable(pKey), 0)
-				<< "Variable not found: '" << pKey << "'";
+		int nRet = remove_variable(pKey);
+		CHECK_EQ(nRet, 0) << format_error_message(nRet);
 	} catch(const dmlc::Error &e) {
 		PyErr_SetString(PyExc_RuntimeError, e.what());
 		return NULL;
@@ -483,8 +505,8 @@ static PyObject* set_variable_value_py(PyObject *self, PyObject *args) {
 
 		const char *pKey = PyUnicode_AsUTF8(pyArg0);
 		double dValue = PyFloat_AsDouble(pyArg1);
-		CHECK_EQ(set_variable_value(pKey, dValue), 0)
-				<< "Variable not found: '" << pKey << "'";
+		int nRet = set_variable_value(pKey, dValue);
+		CHECK_EQ(nRet, 0) << format_error_message(nRet);
 
 	} catch(const dmlc::Error &e) {
 		PyErr_SetString(PyExc_RuntimeError, e.what());
@@ -498,7 +520,8 @@ static PyObject* get_variable_value_py(PyObject *self, PyObject *pyKey) {
 		CHECK(PyUnicode_Check(pyKey)) << "The first arguments hould be a string";
 		const char *pKey = PyUnicode_AsUTF8(pyKey);
 		double dValue = 0.;
-		CHECK_EQ(get_variable_value(pKey, &dValue), 0) << pKey;
+		int nRet = get_variable_value(pKey, &dValue);
+		CHECK_EQ(nRet, 0) << format_error_message(nRet);
 	} catch(const dmlc::Error &e) {
 		PyErr_SetString(PyExc_RuntimeError, e.what());
 		return NULL;
@@ -564,11 +587,10 @@ static PyMethodDef methods[] = {
 	{ nullptr, nullptr, 0, nullptr }
 };
 
-static struct PyModuleDef libexpreval_Module = {PyModuleDef_HEAD_INIT,
-	"libexpreval", "", -1, methods
-	};
-
 PyMODINIT_FUNC PyInit_libexpreval(void) {
 	initialize();
+	static PyModuleDef libexpreval_Module = {
+			PyModuleDef_HEAD_INIT, "libexpreval", "", -1, methods
+		};
 	return PyModule_Create(&libexpreval_Module);
 }
