@@ -33,14 +33,14 @@ test: test.cpp $(SHARED_LIBRARY_NAME)
 	$(CXX) $< -o $@ -L. -lexpreval
 endif
 
-$(SHARED_LIBRARY_NAME): build/lex.o build/y.o build/expreval_py.o
+$(SHARED_LIBRARY_NAME): build/lex.o build/y.o #build/expreval_py.o
 	$(CXX) $^ -o $(SHARED_LIBRARY_NAME) -fPIC -shared $(PYTHON_LIBRARIES)
 
 $(STATIC_LIBRARY_NAME): build/lex.o build/y.o
 	ar rvs $(STATIC_LIBRARY_NAME) $^
 
-build/expreval_py.o: expreval_py.cpp expreval.h
-	$(CXX) -c $< -o $@ -fPIC -I. $(PYTHON_INCLUDE_DIRS)
+#build/expreval_py.o: expreval_py.cpp expreval.h
+#	$(CXX) -c $< -o $@ -fPIC -I. $(PYTHON_INCLUDE_DIRS)
 
 build/lex.o: build/lex.yy.c build/y.tab.h
 	$(CXX) -c $< -o $@ -fPIC -I$(PWD)
