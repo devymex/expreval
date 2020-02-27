@@ -6,6 +6,8 @@
 
 #include <unordered_map>
 #include <string>
+#include <functional>
+#include <vector>
 
 enum VALUE_TYPE {
 	VT_UNKNOWN = 0,
@@ -21,6 +23,8 @@ struct VALUE {
 		int ival;
 		double fval;
 		uint32_t id;
+		std::function<double(double, double)> *bfunc;
+		std::function<double(double)> *ufunc;
 	};
 	VALUE_TYPE type;
 };
@@ -32,6 +36,13 @@ inline VALUE MakeValue(VALUE_TYPE _vt, uint32_t _id) {
 	return val;
 }
 
-extern std::unordered_map<std::string, VALUE> namedTokens;
+struct EXPREVAL {
+	std::vector<double> varList;
+	std::vector<std::function<double(double, double)>> bfuncList;
+	std::vector<std::function<double(double)>> ufuncList;
+	std::unordered_map<std::string, VALUE> namedTokens;
+	double dResult;
+	void *pScannerHdl;
+};
 
 #endif // #ifndef __VALUE_HPP

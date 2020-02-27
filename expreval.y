@@ -1,46 +1,53 @@
-%{
-// Expreval: A "C-like" Syntax Expression Evaluator
-// Yumeng Wang (devymex@gmail.com)
+%define api.pure full
+%locations
+%param { yyscan_t scanner }
 
+%code top {
 
 #include <cmath>
-#include <functional>
 #include <Python.h>
 
 #include "value.hpp"
 #include "logging.hpp"
 
-#define ADD_UNARY_FUNCTION(func_name) \
-	namedTokens[#func_name] = MakeValue(VT_UFUNC, ufuncList.size()); \
-	ufuncList.push_back([](double v) { return std::func_name(v); });
+} // %code top {
 
-#define ADD_BINARY_FUNCTION(func_name) \
-	namedTokens[#func_name] = MakeValue(VT_BFUNC, bfuncList.size()); \
-	bfuncList.push_back([](double a, double b) { return std::func_name(a, b); });
+%code requires {
 
-typedef struct yy_buffer_state *YY_BUFFER_STATE;
+using YY_BUFFER_STATE = struct yy_buffer_state *;
+using YY_EXTRA_TYPE = struct EXPREVAL *;
+using yyscan_t = void*;
 
-extern int yylex();
-extern int yyparse();
-extern YY_BUFFER_STATE yy_scan_string(const char *str);
-extern YY_BUFFER_STATE yy_scan_bytes (const char *bytes, int len);
-extern void yy_delete_buffer(YY_BUFFER_STATE buffer);
+using EXPREVAL_HANDLE = void*;
 
-int yyerror(char const *str) {
-	extern char *yytext;
-	LOG(FATAL) << "parser error near " << yytext << ": " << str << std::endl;
+} // %code requires {
+
+%code {
+
+// Expreval: A "C-like" Syntax Expression Evaluator
+// Yumeng Wang (devymex@gmail.com)
+
+int yylex(YYSTYPE* yylvalp, YYLTYPE* yyllocp, yyscan_t scanner);
+int yylex_init(yyscan_t* scanner);
+int yylex_destroy(yyscan_t yyscanner);
+
+YY_BUFFER_STATE yy_scan_string(const char *str);
+YY_BUFFER_STATE yy_scan_bytes(const char *yybytes,
+		int _yybytes_len, yyscan_t yyscanner);
+YYSTYPE * yyget_lval(yyscan_t yyscanner);
+int yylex_init_extra(YY_EXTRA_TYPE user_defined, yyscan_t *yyscanner);
+YY_EXTRA_TYPE yyget_extra(yyscan_t yyscanner);
+void yy_delete_buffer(YY_BUFFER_STATE buffer, yyscan_t yyscanner);
+
+int yyparse(yyscan_t scanner);
+int yyerror(YYLTYPE* yyllocp, yyscan_t unused, const char* msg) {
+	LOG(FATAL) << "Error:" << yyllocp->first_line
+			<< ":" << yyllocp->first_column
+			<< ":" << msg << std::endl;
 	return 0;
 }
 
-std::vector<double> varList;
-std::vector<std::function<double(double, double)>> bfuncList;
-std::vector<std::function<double(double)>> ufuncList;
-
-std::unordered_map<std::string, VALUE> namedTokens;
-
-double dResult;
-
-%}
+} // %code {
 
 %union {
 	VALUE val;
@@ -67,9 +74,10 @@ double dResult;
 EXPR
 : CONDITIONAL CR {
 		$$ = $1;
-		dResult = $$.fval;
+		auto pExpr = yyget_extra(scanner);
+		pExpr->dResult = $$.fval;
 #ifdef _DEBUG
-		LOG(INFO) << "CONDITIONAL=" << $$.fval;
+		LOG(INFO) << "CONDITIONAL=" << pExpr->dResult;
 #endif
 		YYACCEPT;
 	}
@@ -279,21 +287,23 @@ PRIMARY
 #endif
 	}
 | VARIABLE {
-		$$.fval = varList[$1.id];
+		$$.fval = $1.fval;
 		$$.type = VT_FLOAT;
 #ifdef _DEBUG
 		LOG(INFO) << "VARIABLE=" << $$.fval;
 #endif
 	}
 | BFUNC '(' CONDITIONAL ',' CONDITIONAL ')' {
-		$$.fval = bfuncList[$1.id]($3.fval, $5.fval);
+		auto &bfunc = *$1.bfunc;
+		$$.fval = bfunc($3.fval, $5.fval);
 		$$.type = VT_FLOAT;
 #ifdef _DEBUG
 		LOG(INFO) << "BFUNC" << $1.id << "(" << $3.fval << "," << $5.fval << ") -> " << $$.fval;
 #endif
 	}
 | UFUNC '(' CONDITIONAL ')' {
-		$$.fval = ufuncList[$1.id]($3.fval);
+		auto &ufunc = *$1.ufunc;
+		$$.fval = ufunc($3.fval);
 		$$.type = VT_FLOAT;
 #ifdef _DEBUG
 		LOG(INFO) << "UFUNC" << $1.id << "(" << $3.fval << ") -> " << $$.fval;
@@ -310,11 +320,25 @@ PRIMARY
 
 %%
 
-extern "C" void initialize() {
-	varList.clear();
-	bfuncList.clear();
-	ufuncList.clear();
-	namedTokens.clear();
+#define ADD_UNARY_FUNCTION(func_name) \
+	pExpr->namedTokens[#func_name] = MakeValue(VT_UFUNC, pExpr->ufuncList.size()); \
+	pExpr->ufuncList.push_back([](double v) { return std::func_name(v); });
+
+#define ADD_BINARY_FUNCTION(func_name) \
+	pExpr->namedTokens[#func_name] = MakeValue(VT_BFUNC, pExpr->bfuncList.size()); \
+	pExpr->bfuncList.push_back([](double a, double b) { return std::func_name(a, b); });
+
+extern "C" EXPREVAL_HANDLE initialize() {
+	EXPREVAL_HANDLE pExprHdl = new EXPREVAL;
+
+	EXPREVAL *pExpr = (EXPREVAL*)pExprHdl;
+
+	yylex_init_extra(pExpr, &(pExpr->pScannerHdl));
+
+	pExpr->varList.clear();
+	pExpr->bfuncList.clear();
+	pExpr->ufuncList.clear();
+	pExpr->namedTokens.clear();
 
 	ADD_UNARY_FUNCTION(log);
 	ADD_UNARY_FUNCTION(log10);
@@ -339,11 +363,18 @@ extern "C" void initialize() {
 	ADD_BINARY_FUNCTION(pow);
 
 	// Add mathmatic constants
-	namedTokens["e"] = MakeValue(VT_VAR, varList.size());
-	varList.push_back(M_E);
+	pExpr->namedTokens["e"] = MakeValue(VT_VAR, pExpr->varList.size());
+	pExpr->varList.push_back(M_E);
 
-	namedTokens["pi"] = MakeValue(VT_VAR, varList.size());
-	varList.push_back(M_PI);
+	pExpr->namedTokens["pi"] = MakeValue(VT_VAR, pExpr->varList.size());
+	pExpr->varList.push_back(M_PI);
+	return pExprHdl;
+}
+
+extern "C" void unintialize(EXPREVAL_HANDLE pExprHdl) {
+	EXPREVAL *pExpr = (EXPREVAL*)pExprHdl;
+	yylex_destroy(pExpr->pScannerHdl);
+	delete pExpr;
 }
 
 #define EXPREVAL_NO_ERROR 0
@@ -360,67 +391,77 @@ extern "C" const char* format_error_message(int nErrCode) {
 	return "Unknown error code";
 }
 
-extern "C" int add_variable(const char *pKey, double dValue) {
+extern "C" int add_variable(EXPREVAL_HANDLE pExprHdl, const char *pKey, double dValue) {
+	EXPREVAL *pExpr = (EXPREVAL*)pExprHdl;
+
 	int nErrCode = 0;
 	std::string strKey = pKey;
-	if (namedTokens.count(strKey) == 0) {
-		namedTokens[strKey] = MakeValue(VT_VAR, varList.size());
-		varList.push_back(dValue);
+	if (pExpr->namedTokens.count(strKey) == 0) {
+		pExpr->namedTokens[strKey] = MakeValue(VT_VAR, pExpr->varList.size());
+		pExpr->varList.push_back(dValue);
 	} else {
 		nErrCode = EXPREVAL_VAR_ALREADY_SET;
 	}
 	return nErrCode;
 }
 
-extern "C" int remove_variable(const char *pKey) {
+extern "C" int remove_variable(EXPREVAL_HANDLE pExprHdl, const char *pKey) {
+	EXPREVAL *pExpr = (EXPREVAL*)pExprHdl;
+
 	int nErrCode = 0;
-	auto iVar = namedTokens.find(pKey);
-	if (iVar != namedTokens.end() && iVar->second.type == VT_VAR) {
-		namedTokens.erase(iVar);
+	auto iVar = pExpr->namedTokens.find(pKey);
+	if (iVar != pExpr->namedTokens.end() && iVar->second.type == VT_VAR) {
+		pExpr->namedTokens.erase(iVar);
 	} else {
 		nErrCode = EXPREVAL_VAR_NOT_EXISTS;
 	}
 	return nErrCode;
 }
 
-extern "C" int set_variable_value(const char *pKey, double dValue) {
+extern "C" int set_variable_value(EXPREVAL_HANDLE pExprHdl, const char *pKey, double dValue) {
+	EXPREVAL *pExpr = (EXPREVAL*)pExprHdl;
+
 	int nErrCode = 0;
-	auto iVar = namedTokens.find(pKey);
-	if (iVar == namedTokens.end()) LOG(INFO) << pKey;
+	auto iVar = pExpr->namedTokens.find(pKey);
+	if (iVar == pExpr->namedTokens.end()) LOG(INFO) << pKey;
 	if (iVar->second.type != VT_VAR) LOG(INFO);
-	if (iVar != namedTokens.end() && iVar->second.type == VT_VAR) {
-		varList[iVar->second.id] = dValue;
+	if (iVar != pExpr->namedTokens.end() && iVar->second.type == VT_VAR) {
+		pExpr->varList[iVar->second.id] = dValue;
 	} else {
 		nErrCode = EXPREVAL_VAR_NOT_EXISTS;
 	}
 	return nErrCode;
 }
 
-extern "C" int get_variable_value(const char *pKey, double *pValue) {
+extern "C" int get_variable_value(EXPREVAL_HANDLE pExprHdl, const char *pKey, double *pValue) {
+	EXPREVAL *pExpr = (EXPREVAL*)pExprHdl;
+
 	int nErrCode = 0;
-	auto iVar = namedTokens.find(pKey);
-	if (iVar != namedTokens.end() && iVar->second.type == VT_VAR) {
-		*pValue = varList[iVar->second.id];
+	auto iVar = pExpr->namedTokens.find(pKey);
+	if (iVar != pExpr->namedTokens.end() && iVar->second.type == VT_VAR) {
+		*pValue = pExpr->varList[iVar->second.id];
 	} else {
 		nErrCode = EXPREVAL_VAR_NOT_EXISTS;
 	}
 	return nErrCode;
 }
 
-inline double evaluate_expr_withcr(const char *pStr, int nLen) {
-	auto buffer = yy_scan_bytes(pStr, nLen);
-	yyparse();
-	yy_delete_buffer(buffer);
+inline double evaluate_expr_withcr(EXPREVAL_HANDLE pExprHdl, const char *pStr, int nLen) {
+	EXPREVAL *pExpr = (EXPREVAL*)pExprHdl;
+	auto buffer = yy_scan_bytes(pStr, nLen, pExpr->pScannerHdl);
+	yyparse(pExpr->pScannerHdl);
+	double dResult = pExpr->dResult;
+	yy_delete_buffer(buffer, pExpr->pScannerHdl);
 	return dResult;
 }
 
-extern "C" double evaluate(const char *pStr) {
+extern "C" double evaluate(EXPREVAL_HANDLE pExprHdl, const char *pStr) {
 	int nLen = strlen(pStr);
 	if (pStr[nLen - 1] == '\n') {
 #ifdef _DEBUG
 		LOG(INFO) << "Parsing expression with carriage return...";
 #endif
-		return evaluate_expr_withcr(pStr, nLen);
+		return evaluate_expr_withcr(pExprHdl, pStr, nLen);
 	}
 	const int nLenThres = 250;
 	if (nLen < nLenThres) {
@@ -431,7 +472,7 @@ extern "C" double evaluate(const char *pStr) {
 		char buffer[nLenThres + 1];
 		memcpy(buffer, pStr, nLen);
 		buffer[nLen] = '\n';
-		return evaluate_expr_withcr(buffer, nLen + 1);
+		return evaluate_expr_withcr(pExprHdl, buffer, nLen + 1);
 	}
 #ifdef _DEBUG
 		LOG(INFO) << "Parsing expression without carriage return and longer than "
@@ -439,158 +480,5 @@ extern "C" double evaluate(const char *pStr) {
 #endif
 	std::string strExpr = pStr;
 	strExpr.push_back('\n');
-	return evaluate_expr_withcr(strExpr.c_str(), strExpr.size());
-}
-
-static PyObject* initialize_py(PyObject *self) {
-	initialize();
-	Py_RETURN_NONE;
-}
-
-static PyObject* add_variable_py(PyObject *self, PyObject *args) {
-	try {
-		int nArgCnt = PyTuple_GET_SIZE(args);
-		CHECK_GE(nArgCnt, 1) << "The number of arguments be greater or equal to 1";
-
-		PyObject *pyArg0 = PyTuple_GET_ITEM(args, 0);
-		CHECK_NOTNULL(pyArg0);
-		CHECK(PyUnicode_Check(pyArg0)) << "The first arguments should be a string";
-		const char *pKey = PyUnicode_AsUTF8(pyArg0);
-
-		double dValue = 0;
-		if (nArgCnt > 1) {
-			PyObject *pyArg1 = PyTuple_GET_ITEM(args, 1);
-			CHECK_NOTNULL(pyArg1);
-			CHECK(PyFloat_Check(pyArg1) || PyLong_Check(pyArg1))
-					<< "The second arguments should be a float or int";
-			dValue = PyFloat_AsDouble(pyArg1);
-		}
-		int nRet = add_variable(pKey, dValue);
-		CHECK_EQ(nRet, 0) << format_error_message(nRet);
-
-	} catch(const dmlc::Error &e) {
-		PyErr_SetString(PyExc_RuntimeError, e.what());
-		return NULL;
-	}
-	Py_RETURN_NONE;
-}
-
-static PyObject* remove_variable_py(PyObject *self, PyObject *pyKey) {
-	try {
-		CHECK(PyUnicode_Check(pyKey)) << "The first arguments hould be a string";
-		const char *pKey = PyUnicode_AsUTF8(pyKey);
-		int nRet = remove_variable(pKey);
-		CHECK_EQ(nRet, 0) << format_error_message(nRet);
-	} catch(const dmlc::Error &e) {
-		PyErr_SetString(PyExc_RuntimeError, e.what());
-		return NULL;
-	}
-	Py_RETURN_NONE;
-}
-
-static PyObject* set_variable_value_py(PyObject *self, PyObject *args) {
-	try {
-		int nArgCnt = PyTuple_GET_SIZE(args);
-		CHECK_EQ(nArgCnt, 2) << "Arguments should be consists of a key (string) "
-				"and a value (float)";
-
-		PyObject *pyArg0 = PyTuple_GET_ITEM(args, 0);
-		CHECK_NOTNULL(pyArg0);
-		CHECK(PyUnicode_Check(pyArg0)) << "The first arguments should be a string";
-
-		PyObject *pyArg1 = PyTuple_GET_ITEM(args, 1);
-		CHECK_NOTNULL(pyArg1);
-		CHECK(PyFloat_Check(pyArg1) || PyLong_Check(pyArg1))
-				<< "The second arguments should be a float or int";
-
-		const char *pKey = PyUnicode_AsUTF8(pyArg0);
-		double dValue = PyFloat_AsDouble(pyArg1);
-		int nRet = set_variable_value(pKey, dValue);
-		CHECK_EQ(nRet, 0) << format_error_message(nRet);
-
-	} catch(const dmlc::Error &e) {
-		PyErr_SetString(PyExc_RuntimeError, e.what());
-		return NULL;
-	}
-	Py_RETURN_NONE;
-}
-
-static PyObject* get_variable_value_py(PyObject *self, PyObject *pyKey) {
-	try {
-		CHECK(PyUnicode_Check(pyKey)) << "The first arguments hould be a string";
-		const char *pKey = PyUnicode_AsUTF8(pyKey);
-		double dValue = 0.;
-		int nRet = get_variable_value(pKey, &dValue);
-		CHECK_EQ(nRet, 0) << format_error_message(nRet);
-	} catch(const dmlc::Error &e) {
-		PyErr_SetString(PyExc_RuntimeError, e.what());
-		return NULL;
-	}
-	Py_RETURN_NONE;
-}
-
-static PyObject* evaluate_py(PyObject *self, PyObject *pyKey) {
-	try {
-		CHECK(PyUnicode_Check(pyKey)) << "The first arguments hould be a string";
-		const char *pExpr = PyUnicode_AsUTF8(pyKey);
-		double dResult = evaluate(pExpr);
-	} catch(const dmlc::Error &e) {
-		PyErr_SetString(PyExc_RuntimeError, e.what());
-		return NULL;
-	}
-	return PyFloat_FromDouble(dResult);
-}
-
-static PyMethodDef methods[] = {
-	{
-		"initialize",
-		(PyCFunction)initialize_py,
-		METH_NOARGS,
-		"Reset all variable and re-initialize expreval: initialize()"
-	},
-
-	{
-		"add_variable",
-		(PyCFunction)add_variable_py,
-		METH_VARARGS,
-		"Add an variable with or without a value: add_variable('var1', 1.0)"
-	},
-
-	{
-		"remove_variable",
-		(PyCFunction)remove_variable_py,
-		METH_O,
-		"Remove a configured variable: remove_variable('var1')"
-	},
-
-	{
-		"set_variable_value",
-		(PyCFunction)set_variable_value_py,
-		METH_VARARGS,
-		"Set value of a exists variable: set_variable_value('var1', 2.0)"
-	},
-
-	{
-		"get_variable_value",
-		(PyCFunction)get_variable_value_py,
-		METH_O,
-		"Check wether the specific variable exists: print(get_variable_value('var2'))"
-	},
-
-	{
-		"evaluate",
-		(PyCFunction)evaluate_py,
-		METH_O,
-		"Evaluate expression: print('2 * (var1 + 1.0)')"
-	},
-
-	{ nullptr, nullptr, 0, nullptr }
-};
-
-PyMODINIT_FUNC PyInit_libexpreval(void) {
-	initialize();
-	static PyModuleDef libexpreval_Module = {
-			PyModuleDef_HEAD_INIT, "libexpreval", "", -1, methods
-		};
-	return PyModule_Create(&libexpreval_Module);
+	return evaluate_expr_withcr(pExprHdl, strExpr.c_str(), strExpr.size());
 }

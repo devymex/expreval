@@ -1,18 +1,27 @@
 #ifndef __EXPREVAL_HPP
 #define __EXPREVAL_HPP
 
-extern "C" void initialize();
+using EXPREVAL_HANDLE = void*;
+
+extern "C" EXPREVAL_HANDLE initialize();
+
+extern "C" void unintialize(EXPREVAL_HANDLE pExprHdl);
 
 extern "C" const char* format_error_message(int nErrCode);
 
-extern "C" int add_variable(const char *pKey, double dValue);
+extern "C" int add_variable(EXPREVAL_HANDLE pExprHdl,
+		const char *pKey, double dValue);
 
-extern "C" int remove_variable(const char *pKey);
+extern "C" int remove_variable(EXPREVAL_HANDLE pExprHdl,
+		const char *pKey);
 
-extern "C" int set_variable_value(const char *pKey, double dValue);
+extern "C" int set_variable_value(EXPREVAL_HANDLE pExprHdl,
+		const char *pKey, double dValue);
 
-extern "C" int get_variable_value(const char *pKey, double *pValue);
+extern "C" int get_variable_value(EXPREVAL_HANDLE pExprHdl,
+		const char *pKey, double *pValue);
 
-extern "C" double evaluate(const char *pStr);
+extern "C" double evaluate(EXPREVAL_HANDLE pExprHdl,
+		const char *pStr);
 
 #endif // #ifndef __EXPREVAL_HPP

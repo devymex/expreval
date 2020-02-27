@@ -63,6 +63,7 @@
 		"typeinfo": "cpp",
 		"valarray": "cpp",
 		"variant": "cpp",
-		"cerrno": "cpp"
+		"cerrno": "cpp",
+		"y.tab.h": "c"
 	}
 }
