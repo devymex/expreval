@@ -49,7 +49,7 @@ YY_EXTRA_TYPE yyget_extra(yyscan_t yyscanner);
 
 // Statement of error handler
 // --------------------------
-extern "C" int yyerror(yyscan_t unused, const char* msg);
+extern "C" int yyerror(yyscan_t, const char* msg);
 
 } // %code provides {
 
@@ -61,6 +61,7 @@ extern "C" int yyerror(yyscan_t unused, const char* msg);
 %token <val> OP_LT OP_LE OP_GE OP_GT OP_EQ OP_NE
 %token <val> CONSTANT VARIABLE BFUNC UFUNC
 %token <val> END_OF_FILE
+
 %type <val> EXPR CONDITIONAL ADDITIVE MULTIPLICATIVE PRIMARY
 %type <val> LOGICAL_OR LOGICAL_AND EQUALITY RELATIONAL NEGATION
 
@@ -377,6 +378,7 @@ extern "C" EXPREVAL_HANDLE initialize() {
 
 extern "C" void unintialize(EXPREVAL_HANDLE pExprHdl) {
 	EXPREVAL *pExpr = (EXPREVAL*)pExprHdl;
+
 	yylex_destroy(pExpr->pScannerHdl);
 	delete pExpr;
 }
@@ -442,6 +444,7 @@ extern "C" int get_variable_value(EXPREVAL_HANDLE pExprHdl,
 extern "C" double evaluate_with_length(EXPREVAL_HANDLE pExprHdl,
 		const char *pStr, int nLen) {
 	EXPREVAL *pExpr = (EXPREVAL*)pExprHdl;
+
 	auto buffer = yy_scan_bytes(pStr, nLen, pExpr->pScannerHdl);
 	yyparse(pExpr->pScannerHdl);
 	double dResult = pExpr->dResult;
@@ -464,7 +467,7 @@ extern "C" const char* format_error_message(int nErrCode) {
 	return "Unknown error code";
 }
 
-extern "C" int yyerror(yyscan_t unused, const char* msg) {
-	LOG(FATAL) << "Error: " << msg << std::endl;
+extern "C" int yyerror(yyscan_t, const char* msg) {
+	LOG(FATAL) << msg << std::endl;
 	return 0;
 }

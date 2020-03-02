@@ -1,7 +1,7 @@
 #ifndef __EXPREVAL_HPP
 #define __EXPREVAL_HPP
 
-using EXPREVAL_HANDLE = void*;
+typedef void * EXPREVAL_HANDLE;
 
 extern "C" EXPREVAL_HANDLE initialize();
 
@@ -23,7 +23,7 @@ extern "C" double evaluate(EXPREVAL_HANDLE pExprHdl,
 		const char *pStr);
 
 extern "C" double evaluate_with_length(EXPREVAL_HANDLE pExprHdl,
-		const char *pStr, int nLen);
+		const char *pStr, int nLen); // slight faster than evaluate
 
 extern "C" const char* format_error_message(int nErrCode);
 
