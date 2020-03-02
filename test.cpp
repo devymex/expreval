@@ -43,7 +43,8 @@ int main(int nArgCnt, char *ppArgs[]) {
 				add_variable(pExprHdl, "box_h", 200);
 
 				std::string strExpr = "box_x - max(3 * box_w, 4 * box_h) * 1.25 / box_w";
-				auto dResult = evaluate(pExprHdl, strExpr.c_str());
+				auto dResult = evaluate_with_length(pExprHdl,
+						strExpr.c_str(), strExpr.size());
 				PrintOutput(strExpr, dResult);
 				unintialize(pExprHdl);
 				usleep(100 * 1000);

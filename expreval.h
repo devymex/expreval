@@ -22,6 +22,9 @@ extern "C" int get_variable_value(EXPREVAL_HANDLE pExprHdl,
 extern "C" double evaluate(EXPREVAL_HANDLE pExprHdl,
 		const char *pStr);
 
+extern "C" double evaluate_with_length(EXPREVAL_HANDLE pExprHdl,
+		const char *pStr, int nLen);
+
 extern "C" const char* format_error_message(int nErrCode);
 
 #endif // #ifndef __EXPREVAL_HPP

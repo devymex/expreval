@@ -1,6 +1,6 @@
-%option noinput nounput noyywrap yylineno
-%option reentrant bison-bridge bison-locations
-%option extra-type="struct EXPREVAL *"
+%option noinput nounput yylineno noyywrap
+%option reentrant bison-bridge
+%option extra-type = "struct EXPREVAL *"
 
 %{
 // Expreval: A "C-like" Syntax Expression Evaluator
@@ -18,6 +18,7 @@
 
 %%
 
+[ \t]	;
 [0-9]*\.?[0-9]+([eE][-+]?[0-9]+)? {
 	yylval->val.fval = atof(yytext);
 	return CONSTANT;
@@ -49,8 +50,7 @@
 "!="	{return OP_NE;}
 "||"	{return OP_OR;}
 "&&"	{return OP_AND;}
-"\n"	{return CR;}
-[ \t]	;
+<<EOF>>	{return END_OF_FILE;}
 .		{LOG(FATAL) << "Lex error: " << yytext;}
 
 %%

@@ -1,7 +1,5 @@
 %define api.pure full
 
-%locations
-
 %param {
 
 yyscan_t scanner
@@ -44,14 +42,14 @@ YY_BUFFER_STATE yy_scan_bytes(const char *yybytes,
 		int _yybytes_len, yyscan_t yyscanner);
 void yy_delete_buffer(YY_BUFFER_STATE buffer, yyscan_t yyscanner);
 
-int yylex(YYSTYPE* yylvalp, YYLTYPE* yyllocp, yyscan_t scanner);
+int yylex(YYSTYPE* yylvalp, yyscan_t scanner);
 
 YYSTYPE * yyget_lval(yyscan_t yyscanner);
 YY_EXTRA_TYPE yyget_extra(yyscan_t yyscanner);
 
 // Statement of error handler
 // --------------------------
-int yyerror(YYLTYPE* yyllocp, yyscan_t unused, const char* msg);
+extern "C" int yyerror(yyscan_t unused, const char* msg);
 
 } // %code provides {
 
@@ -60,8 +58,9 @@ int yyerror(YYLTYPE* yyllocp, yyscan_t unused, const char* msg);
 }
 
 %token <val> '+' '-' '*' '/' '?' ':'
-%token <val> OP_LT OP_LE OP_GE OP_GT OP_EQ OP_NE CR
+%token <val> OP_LT OP_LE OP_GE OP_GT OP_EQ OP_NE
 %token <val> CONSTANT VARIABLE BFUNC UFUNC
+%token <val> END_OF_FILE
 %type <val> EXPR CONDITIONAL ADDITIVE MULTIPLICATIVE PRIMARY
 %type <val> LOGICAL_OR LOGICAL_AND EQUALITY RELATIONAL NEGATION
 
@@ -78,7 +77,7 @@ int yyerror(YYLTYPE* yyllocp, yyscan_t unused, const char* msg);
 %%
 
 EXPR
-: CONDITIONAL CR {
+: CONDITIONAL END_OF_FILE {
 		$$ = $1;
 		auto pExpr = yyget_extra(scanner);
 		pExpr->dResult = $$.fval;
@@ -440,7 +439,7 @@ extern "C" int get_variable_value(EXPREVAL_HANDLE pExprHdl,
 	return nErrCode;
 }
 
-inline double evaluate_expr_withcr(EXPREVAL_HANDLE pExprHdl,
+extern "C" double evaluate_with_length(EXPREVAL_HANDLE pExprHdl,
 		const char *pStr, int nLen) {
 	EXPREVAL *pExpr = (EXPREVAL*)pExprHdl;
 	auto buffer = yy_scan_bytes(pStr, nLen, pExpr->pScannerHdl);
@@ -452,30 +451,7 @@ inline double evaluate_expr_withcr(EXPREVAL_HANDLE pExprHdl,
 
 extern "C" double evaluate(EXPREVAL_HANDLE pExprHdl, const char *pStr) {
 	int nLen = strlen(pStr);
-	if (pStr[nLen - 1] == '\n') {
-#ifdef _DEBUG
-		LOG(INFO) << "Parsing expression with carriage return...";
-#endif
-		return evaluate_expr_withcr(pExprHdl, pStr, nLen);
-	}
-	const int nLenThres = 250;
-	if (nLen < nLenThres) {
-#ifdef _DEBUG
-		LOG(INFO) << "Parsing expression without carriage return but within "
-				  << nLenThres << " characters...";
-#endif
-		char buffer[nLenThres + 1];
-		memcpy(buffer, pStr, nLen);
-		buffer[nLen] = '\n';
-		return evaluate_expr_withcr(pExprHdl, buffer, nLen + 1);
-	}
-#ifdef _DEBUG
-		LOG(INFO) << "Parsing expression without carriage return and longer than "
-				  << nLenThres << " characters...";
-#endif
-	std::string strExpr = pStr;
-	strExpr.push_back('\n');
-	return evaluate_expr_withcr(pExprHdl, strExpr.c_str(), strExpr.size());
+	return evaluate_with_length(pExprHdl, pStr, nLen);
 }
 
 extern "C" const char* format_error_message(int nErrCode) {
@@ -488,9 +464,7 @@ extern "C" const char* format_error_message(int nErrCode) {
 	return "Unknown error code";
 }
 
-int yyerror(YYLTYPE* yyllocp, yyscan_t unused, const char* msg) {
-	LOG(FATAL) << "Error:" << yyllocp->first_line
-			<< ":" << yyllocp->first_column
-			<< ":" << msg << std::endl;
+extern "C" int yyerror(yyscan_t unused, const char* msg) {
+	LOG(FATAL) << "Error: " << msg << std::endl;
 	return 0;
 }
