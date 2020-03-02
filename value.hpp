@@ -20,9 +20,9 @@ enum VALUE_TYPE {
 
 struct VALUE {
 	union {
-		int ival;
-		double fval;
 		uint32_t id;
+		int32_t ival;
+		double fval;
 		std::function<double(double, double)> *bfunc;
 		std::function<double(double)> *ufunc;
 	};

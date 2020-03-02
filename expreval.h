@@ -7,8 +7,6 @@ extern "C" EXPREVAL_HANDLE initialize();
 
 extern "C" void unintialize(EXPREVAL_HANDLE pExprHdl);
 
-extern "C" const char* format_error_message(int nErrCode);
-
 extern "C" int add_variable(EXPREVAL_HANDLE pExprHdl,
 		const char *pKey, double dValue);
 
@@ -23,5 +21,7 @@ extern "C" int get_variable_value(EXPREVAL_HANDLE pExprHdl,
 
 extern "C" double evaluate(EXPREVAL_HANDLE pExprHdl,
 		const char *pStr);
+
+extern "C" const char* format_error_message(int nErrCode);
 
 #endif // #ifndef __EXPREVAL_HPP

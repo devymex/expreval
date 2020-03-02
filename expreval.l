@@ -1,5 +1,4 @@
-%option noinput nounput noyywrap 8bit nodefault
-%option yylineno
+%option noinput nounput noyywrap yylineno
 %option reentrant bison-bridge bison-locations
 %option extra-type="struct EXPREVAL *"
 

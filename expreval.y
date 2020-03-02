@@ -1,12 +1,17 @@
 %define api.pure full
+
 %locations
-%param { yyscan_t scanner }
+
+%param {
+
+yyscan_t scanner
+
+} // %param {
 
 %code top {
 
 #include <cmath>
 #include <Python.h>
-
 #include "value.hpp"
 #include "logging.hpp"
 
@@ -14,40 +19,41 @@
 
 %code requires {
 
+using yyscan_t = void *;
 using YY_BUFFER_STATE = struct yy_buffer_state *;
 using YY_EXTRA_TYPE = struct EXPREVAL *;
-using yyscan_t = void*;
-
-using EXPREVAL_HANDLE = void*;
+using EXPREVAL_HANDLE = void *;
 
 } // %code requires {
 
-%code {
+%code provides {
 
 // Expreval: A "C-like" Syntax Expression Evaluator
 // Yumeng Wang (devymex@gmail.com)
 
-int yylex(YYSTYPE* yylvalp, YYLTYPE* yyllocp, yyscan_t scanner);
-int yylex_init(yyscan_t* scanner);
+#define EXPREVAL_NO_ERROR 0
+#define EXPREVAL_VAR_ALREADY_SET 1
+#define EXPREVAL_VAR_NOT_EXISTS 2
+
+// Statement of generated functions by lex
+// ---------------------------------------
+int yylex_init_extra(YY_EXTRA_TYPE user_defined, yyscan_t *yyscanner);
 int yylex_destroy(yyscan_t yyscanner);
 
-YY_BUFFER_STATE yy_scan_string(const char *str);
 YY_BUFFER_STATE yy_scan_bytes(const char *yybytes,
 		int _yybytes_len, yyscan_t yyscanner);
-YYSTYPE * yyget_lval(yyscan_t yyscanner);
-int yylex_init_extra(YY_EXTRA_TYPE user_defined, yyscan_t *yyscanner);
-YY_EXTRA_TYPE yyget_extra(yyscan_t yyscanner);
 void yy_delete_buffer(YY_BUFFER_STATE buffer, yyscan_t yyscanner);
 
-int yyparse(yyscan_t scanner);
-int yyerror(YYLTYPE* yyllocp, yyscan_t unused, const char* msg) {
-	LOG(FATAL) << "Error:" << yyllocp->first_line
-			<< ":" << yyllocp->first_column
-			<< ":" << msg << std::endl;
-	return 0;
-}
+int yylex(YYSTYPE* yylvalp, YYLTYPE* yyllocp, yyscan_t scanner);
 
-} // %code {
+YYSTYPE * yyget_lval(yyscan_t yyscanner);
+YY_EXTRA_TYPE yyget_extra(yyscan_t yyscanner);
+
+// Statement of error handler
+// --------------------------
+int yyerror(YYLTYPE* yyllocp, yyscan_t unused, const char* msg);
+
+} // %code provides {
 
 %union {
 	VALUE val;
@@ -109,7 +115,6 @@ CONDITIONAL
 		}
 	}
 ;
-
 
 LOGICAL_OR
 : LOGICAL_AND {
@@ -377,21 +382,8 @@ extern "C" void unintialize(EXPREVAL_HANDLE pExprHdl) {
 	delete pExpr;
 }
 
-#define EXPREVAL_NO_ERROR 0
-#define EXPREVAL_VAR_ALREADY_SET 1
-#define EXPREVAL_VAR_NOT_EXISTS 2
-
-extern "C" const char* format_error_message(int nErrCode) {
-	switch (nErrCode) {
-	case EXPREVAL_NO_ERROR: return "No error";
-	case EXPREVAL_VAR_ALREADY_SET: return "Variable already set";
-	case EXPREVAL_VAR_NOT_EXISTS: return "Variable not exists";
-	default: break;
-	}
-	return "Unknown error code";
-}
-
-extern "C" int add_variable(EXPREVAL_HANDLE pExprHdl, const char *pKey, double dValue) {
+extern "C" int add_variable(EXPREVAL_HANDLE pExprHdl,
+		const char *pKey, double dValue) {
 	EXPREVAL *pExpr = (EXPREVAL*)pExprHdl;
 
 	int nErrCode = 0;
@@ -418,7 +410,8 @@ extern "C" int remove_variable(EXPREVAL_HANDLE pExprHdl, const char *pKey) {
 	return nErrCode;
 }
 
-extern "C" int set_variable_value(EXPREVAL_HANDLE pExprHdl, const char *pKey, double dValue) {
+extern "C" int set_variable_value(EXPREVAL_HANDLE pExprHdl,
+		const char *pKey, double dValue) {
 	EXPREVAL *pExpr = (EXPREVAL*)pExprHdl;
 
 	int nErrCode = 0;
@@ -433,7 +426,8 @@ extern "C" int set_variable_value(EXPREVAL_HANDLE pExprHdl, const char *pKey, do
 	return nErrCode;
 }
 
-extern "C" int get_variable_value(EXPREVAL_HANDLE pExprHdl, const char *pKey, double *pValue) {
+extern "C" int get_variable_value(EXPREVAL_HANDLE pExprHdl,
+		const char *pKey, double *pValue) {
 	EXPREVAL *pExpr = (EXPREVAL*)pExprHdl;
 
 	int nErrCode = 0;
@@ -446,7 +440,8 @@ extern "C" int get_variable_value(EXPREVAL_HANDLE pExprHdl, const char *pKey, do
 	return nErrCode;
 }
 
-inline double evaluate_expr_withcr(EXPREVAL_HANDLE pExprHdl, const char *pStr, int nLen) {
+inline double evaluate_expr_withcr(EXPREVAL_HANDLE pExprHdl,
+		const char *pStr, int nLen) {
 	EXPREVAL *pExpr = (EXPREVAL*)pExprHdl;
 	auto buffer = yy_scan_bytes(pStr, nLen, pExpr->pScannerHdl);
 	yyparse(pExpr->pScannerHdl);
@@ -481,4 +476,21 @@ extern "C" double evaluate(EXPREVAL_HANDLE pExprHdl, const char *pStr) {
 	std::string strExpr = pStr;
 	strExpr.push_back('\n');
 	return evaluate_expr_withcr(pExprHdl, strExpr.c_str(), strExpr.size());
+}
+
+extern "C" const char* format_error_message(int nErrCode) {
+	switch (nErrCode) {
+	case EXPREVAL_NO_ERROR: return "No error";
+	case EXPREVAL_VAR_ALREADY_SET: return "Variable already set";
+	case EXPREVAL_VAR_NOT_EXISTS: return "Variable not exists";
+	default: break;
+	}
+	return "Unknown error code";
+}
+
+int yyerror(YYLTYPE* yyllocp, yyscan_t unused, const char* msg) {
+	LOG(FATAL) << "Error:" << yyllocp->first_line
+			<< ":" << yyllocp->first_column
+			<< ":" << msg << std::endl;
+	return 0;
 }
